@@ -1,0 +1,65 @@
+! Regolith 3 - Custom Configuration
+
+! Alacritty as default terminal
+wm.program.terminal: /usr/local/bin/alacritty
+
+! Resize Mode on Super+= (Super+R is for Fluistern)
+wm.binding.resize_mode: equal
+
+! Caja as File Manager
+wm.program.files: /usr/bin/caja --new-window
+!regolith.look.path: /usr/share/regolith-look/default
+regolith.look.path: /usr/share/regolith-look/nord
+
+! Close Window on Super+Q
+wm.binding.exit_app: q
+
+! Wallpaper
+regolith.wallpaper.file: /home/user/Pictures/wal/wallhaven-ogy9mp.jpg
+regolith.wallpaper.options: zoom
+
+! Lock Screen on Super+W (Wifi on Super+Shift+W)
+wm.binding.lock: w
+wm.binding.wifi: Shift+w
+
+! Disable standard workspace keys (replaced by per-monitor script)
+wm.workspace.01.key: F13
+wm.workspace.02.key: F14
+wm.workspace.03.key: F15
+wm.workspace.04.key: F16
+wm.workspace.05.key: F17
+wm.workspace.06.key: F18
+wm.workspace.07.key: F19
+wm.workspace.08.key: F20
+wm.workspace.09.key: F21
+wm.workspace.10.key: F22
+
+! Plain workspace names (no colored icons)
+wm.workspace.01.name: 1
+wm.workspace.02.name: 2
+wm.workspace.03.name: 3
+wm.workspace.04.name: 4
+wm.workspace.05.name: 5
+wm.workspace.06.name: 6
+wm.workspace.07.name: 7
+wm.workspace.08.name: 8
+wm.workspace.09.name: 9
+wm.workspace.10.name: 10
+wm.workspace.11.name: 11
+wm.workspace.12.name: 12
+wm.workspace.13.name: 13
+wm.workspace.14.name: 14
+wm.workspace.15.name: 15
+wm.workspace.16.name: 16
+wm.workspace.17.name: 17
+wm.workspace.18.name: 18
+wm.workspace.19.name: 19
+wm.workspace.21.name: 21
+wm.workspace.22.name: 22
+wm.workspace.23.name: 23
+wm.workspace.24.name: 24
+wm.workspace.25.name: 25
+wm.workspace.26.name: 26
+wm.workspace.27.name: 27
+wm.workspace.28.name: 28
+wm.workspace.29.name: 29

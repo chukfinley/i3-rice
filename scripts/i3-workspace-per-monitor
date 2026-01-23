@@ -1,0 +1,24 @@
+#!/bin/bash
+# Fast workspace switching per monitor
+
+ACTION="$1"
+WS_NUM="$2"
+
+# Get focused output from i3
+FOCUSED_OUTPUT=$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused) | .output')
+
+# Map output to workspace offset
+case "$FOCUSED_OUTPUT" in
+    eDP-1)   OFFSET=0 ;;   # Laptop: workspaces 1-9
+    DP-3-1)  OFFSET=10 ;;  # External 1: workspaces 11-19
+    DP-3-2)  OFFSET=20 ;;  # External 2: workspaces 21-29
+    *)       OFFSET=0 ;;   # Fallback to laptop
+esac
+
+REAL_WS=$((OFFSET + WS_NUM))
+
+if [[ "$ACTION" == "move" ]]; then
+    exec i3-msg "move container to workspace number $REAL_WS; workspace number $REAL_WS"
+else
+    exec i3-msg "workspace number $REAL_WS"
+fi

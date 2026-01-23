@@ -1,0 +1,26 @@
+# yt-dlp configuration
+
+# Video format: ONLY H.264/H.265 (exclude AV1, VP9, VP8), allow up to 4K
+# Priority:
+#   1. 4K H.264 (avc1)
+#   2. 4K H.265 (hevc/hev1)
+#   3. 1080p H.264
+#   4. 1080p H.265
+#   5. Fallback to best available
+# Explicitly exclude: AV1 (av01), VP9 (vp9), VP8 (vp8)
+--format "bestvideo[vcodec^=avc1][height<=2160]+bestaudio/bestvideo[vcodec^=hev1][height<=2160]+bestaudio/bestvideo[vcodec^=avc1][height<=1080]+bestaudio/bestvideo[vcodec^=hev1][height<=1080]+bestaudio/best"
+
+# Format sorting: prefer higher resolution, then H.264 over HEVC
+--format-sort "res,vcodec:h264,vcodec:hevc"
+
+# Embed metadata
+--embed-metadata
+
+# Embed thumbnail
+--embed-thumbnail
+
+# Output template
+--output "%(title)s [%(id)s].%(ext)s"
+
+# Prefer ffmpeg for merging
+--merge-output-format mkv
