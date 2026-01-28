@@ -1,0 +1,30 @@
+#!/bin/bash
+# Custom tailscale block - shows Mullvad VPN status
+
+LABEL_COLOR=${label_color:-$(xrescat i3xrocks.label.color)}
+VALUE_COLOR=${value_color:-$(xrescat i3xrocks.value.color)}
+VALUE_FONT=${font:-$(xrescat i3xrocks.value.font)}
+
+# Check if tailscale is connected
+if ! tailscale status &>/dev/null; then
+    exit 0
+fi
+
+# Check current exit node
+EXIT_NODE=$(tailscale status --json 2>/dev/null | jq -r '
+    .Peer as $peers |
+    to_entries |
+    map(select(.value.ExitNode == true)) |
+    .[0].value.HostName // empty
+' 2>/dev/null)
+
+if [[ -z "$EXIT_NODE" ]]; then
+    # No exit node - just show tailscale connected
+    echo "<span color=\"${LABEL_COLOR}\" font_desc=\"${VALUE_FONT}\">󰖂</span>"
+elif [[ "$EXIT_NODE" == *"mullvad"* ]]; then
+    # Mullvad VPN active
+    echo "<span color=\"#A3BE8C\" font_desc=\"${VALUE_FONT}\">󰖂 VPN</span>"
+else
+    # Other exit node
+    echo "<span color=\"${VALUE_COLOR}\" font_desc=\"${VALUE_FONT}\">󰖂 ${EXIT_NODE%%.*}</span>"
+fi

@@ -1,0 +1,44 @@
+#!/bin/bash
+# Mullvad VPN status via Tailscale exit node
+# Left-click: toggle VPN on/off
+
+VALUE_FONT=${font:-$(xrescat i3xrocks.value.font "RobotoMono Nerd Font 12")}
+
+# Check current exit node status
+get_exit_node() {
+    tailscale status --json 2>/dev/null | jq -r '
+        if .ExitNodeStatus.Online == true then
+            .ExitNodeStatus.TailscaleIPs[0] as $ip |
+            (.Peer // {}) | to_entries[] | select(.value.TailscaleIPs[]? == $ip) | .value.HostName
+        else
+            empty
+        end
+    ' 2>/dev/null
+}
+
+EXIT_INFO=$(get_exit_node)
+
+# Handle click
+if [[ "$BLOCK_BUTTON" == "1" ]]; then
+    if [[ -z "$EXIT_INFO" ]]; then
+        # Not connected - connect to Mullvad server
+        MULLVAD_SERVER=$(tailscale exit-node list 2>/dev/null | grep -i "mullvad" | grep -i "germany" | shuf -n1 | awk '{print $1}')
+        if [[ -n "$MULLVAD_SERVER" ]]; then
+            tailscale set --exit-node="$MULLVAD_SERVER" &>/dev/null
+        fi
+    else
+        # Connected - disconnect (clear exit node)
+        tailscale set --exit-node="" &>/dev/null
+    fi
+    sleep 1
+    EXIT_INFO=$(get_exit_node)
+fi
+
+# Display status
+if [[ -z "$EXIT_INFO" ]]; then
+    echo "<span font_desc=\"${VALUE_FONT}\" color=\"#7B8394\">VPN</span>"
+elif [[ "$EXIT_INFO" == *"mullvad"* ]]; then
+    echo "<span font_desc=\"${VALUE_FONT}\" color=\"#A3BE8C\">VPN</span>"
+else
+    echo "<span font_desc=\"${VALUE_FONT}\" color=\"#EBCB8B\">VPN</span>"
+fi

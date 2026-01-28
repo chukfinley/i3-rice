@@ -46,6 +46,12 @@ exec --no-startup-id /usr/bin/signal-desktop --start-in-tray
 
 # Custom Keybindings
 
+# Super+Shift+Space to toggle floating mode
+bindsym $mod+Shift+space floating toggle
+
+# Super+Shift+V for Tailscale/VPN menu
+bindsym $mod+Shift+v exec --no-startup-id ~/.local/bin/tailscale-menu
+
 # Super+R for Fluistern (Voice Input)
 bindsym $mod+r exec --no-startup-id /home/user/.local/bin/fluistern
 

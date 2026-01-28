@@ -31,7 +31,16 @@ sudo apt install -y \
     picom \
     feh \
     xdotool \
-    rofi
+    rofi \
+    engrampa \
+    caja-open-terminal \
+    caja-admin \
+    caja-rename \
+    caja-wallpaper \
+    folder-color-caja \
+    xdg-desktop-portal-xapp \
+    nordic-darker \
+    papirus-icon-theme
 
 # Optional: Install regolith-desktop if not present
 if ! command -v regolith-look &>/dev/null; then
@@ -52,6 +61,10 @@ done
 
 if [[ -e "$HOME/.config/picom.conf" ]]; then
     cp "$HOME/.config/picom.conf" "$BACKUP_DIR/"
+fi
+
+if [[ -e "$HOME/.config/mimeapps.list" ]]; then
+    cp "$HOME/.config/mimeapps.list" "$BACKUP_DIR/"
 fi
 
 echo "  Backup saved to: $BACKUP_DIR"
@@ -75,11 +88,25 @@ for dir in regolith3 qt5ct qt6ct alacritty environment.d autostart mpv yt-dlp xd
     fi
 done
 
+# Symlink i3xrocks config (in case regolith3 wasn't fully symlinked)
+if [[ -d "$SCRIPT_DIR/config/regolith3/i3xrocks" ]]; then
+    rm -rf "$HOME/.config/regolith3/i3xrocks"
+    ln -sf "$SCRIPT_DIR/config/regolith3/i3xrocks" "$HOME/.config/regolith3/i3xrocks"
+    echo "  Linked: ~/.config/regolith3/i3xrocks"
+fi
+
 # Symlink picom.conf
 if [[ -f "$SCRIPT_DIR/picom.conf" ]]; then
     rm -f "$HOME/.config/picom.conf"
     ln -sf "$SCRIPT_DIR/picom.conf" "$HOME/.config/picom.conf"
     echo "  Linked: ~/.config/picom.conf"
+fi
+
+# Symlink mimeapps.list (for default applications like Flatpak MPV)
+if [[ -f "$SCRIPT_DIR/config/mimeapps.list" ]]; then
+    rm -f "$HOME/.config/mimeapps.list"
+    ln -sf "$SCRIPT_DIR/config/mimeapps.list" "$HOME/.config/mimeapps.list"
+    echo "  Linked: ~/.config/mimeapps.list"
 fi
 
 echo ""
@@ -98,8 +125,30 @@ done
 # Update scripts with correct home path
 sed -i "s|/home/user|$HOME|g" "$HOME/.local/bin/"* 2>/dev/null || true
 
+# Install custom .desktop files (e.g., caja without OnlyShowIn=MATE)
+if [[ -d "$SCRIPT_DIR/config/applications" ]]; then
+    mkdir -p "$HOME/.local/share/applications"
+    for desktop in "$SCRIPT_DIR/config/applications/"*.desktop; do
+        if [[ -f "$desktop" ]]; then
+            name=$(basename "$desktop")
+            cp "$desktop" "$HOME/.local/share/applications/$name"
+            echo "  Installed: ~/.local/share/applications/$name"
+        fi
+    done
+fi
+
 echo ""
 echo "[5/5] Post-install setup..."
+
+# Caja settings
+echo "  Configuring Caja file manager..."
+gsettings set org.mate.caja.window-state start-with-toolbar true
+xdg-mime default caja.desktop inode/directory application/x-gnome-saved-search x-scheme-handler/file x-scheme-handler/trash
+
+# Set Alacritty as terminal for caja-open-terminal
+echo "  Setting Alacritty as default terminal..."
+gsettings set org.mate.applications-terminal exec 'alacritty'
+gsettings set org.mate.applications-terminal exec-arg '-e'
 
 # Refresh regolith look if available
 if command -v regolith-look &>/dev/null; then

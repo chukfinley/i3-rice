@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Caja
+GenericName=File Manager
+Exec=/usr/bin/caja
+Icon=system-file-manager
+Terminal=false
+Type=Application
+Categories=MATE;GTK;Utility;Core;FileManager;

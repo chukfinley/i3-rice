@@ -1,0 +1,5 @@
+#!/bin/bash
+# Wrapper script to run Flatpak MPV from terminal
+# Passes all arguments to the flatpak app
+
+exec flatpak run io.mpv.Mpv "$@"

@@ -1,0 +1,4 @@
+[mullvad]
+command=/home/user/.local/bin/i3xrocks-mullvad
+interval=10
+markup=pango

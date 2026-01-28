@@ -1,0 +1,169 @@
+#!/bin/bash
+# Tailscale/Mullvad VPN Menu
+
+# Get current exit node status
+get_exit_node() {
+    # Method 1: Check ExitNodeStatus
+    local node=$(tailscale status --json 2>/dev/null | jq -r '
+        if .ExitNodeStatus.Online == true then
+            (.Peer // {}) | to_entries[] |
+            select(.value.ExitNode == true) |
+            .value.HostName
+        else
+            empty
+        end
+    ' 2>/dev/null)
+
+    # Method 2: Check Peer with ExitNode=true
+    if [[ -z "$node" ]]; then
+        node=$(tailscale status --json 2>/dev/null | jq -r '
+            (.Peer // {}) | to_entries[] |
+            select(.value.ExitNode == true) |
+            .value.HostName
+        ' 2>/dev/null)
+    fi
+
+    # Method 3: Check debug prefs
+    if [[ -z "$node" ]]; then
+        local exit_id=$(tailscale debug prefs 2>/dev/null | grep '"ExitNodeID"' | grep -v '""' | head -1)
+        if [[ -n "$exit_id" && "$exit_id" != *'""'* ]]; then
+            node="connected"
+        fi
+    fi
+
+    echo "$node"
+}
+
+# Connect to a server
+connect_server() {
+    local country="$1"
+    local SERVER=$(tailscale exit-node list 2>/dev/null | grep -i "mullvad" | grep -i "$country" | shuf -n1 | awk '{print $1}')
+    if [[ -n "$SERVER" ]]; then
+        tailscale set --exit-node="$SERVER"
+        notify-send "VPN" "Connecting to $country..." -t 2000
+    else
+        notify-send "VPN" "No server found for $country" -t 2000
+    fi
+}
+
+# Disconnect
+disconnect_vpn() {
+    tailscale set --exit-node=""
+    notify-send "VPN" "Disconnected" -t 2000
+}
+
+# Get all available countries
+show_all_servers() {
+    COUNTRIES=$(tailscale exit-node list 2>/dev/null | grep -i "mullvad" | awk '{print $4}' | sort -u | while read country; do
+        case "$country" in
+            Albania) echo "🇦🇱 Albania" ;;
+            Argentina) echo "🇦🇷 Argentina" ;;
+            Australia) echo "🇦🇺 Australia" ;;
+            Austria) echo "🇦🇹 Austria" ;;
+            Belgium) echo "🇧🇪 Belgium" ;;
+            Brazil) echo "🇧🇷 Brazil" ;;
+            Bulgaria) echo "🇧🇬 Bulgaria" ;;
+            Canada) echo "🇨🇦 Canada" ;;
+            Chile) echo "🇨🇱 Chile" ;;
+            Colombia) echo "🇨🇴 Colombia" ;;
+            Croatia) echo "🇭🇷 Croatia" ;;
+            Czechia|Czech) echo "🇨🇿 Czechia" ;;
+            Denmark) echo "🇩🇰 Denmark" ;;
+            Estonia) echo "🇪🇪 Estonia" ;;
+            Finland) echo "🇫🇮 Finland" ;;
+            France) echo "🇫🇷 France" ;;
+            Germany) echo "🇩🇪 Germany" ;;
+            Greece) echo "🇬🇷 Greece" ;;
+            "Hong") echo "🇭🇰 Hong Kong" ;;
+            Hungary) echo "🇭🇺 Hungary" ;;
+            Iceland) echo "🇮🇸 Iceland" ;;
+            India) echo "🇮🇳 India" ;;
+            Indonesia) echo "🇮🇩 Indonesia" ;;
+            Ireland) echo "🇮🇪 Ireland" ;;
+            Israel) echo "🇮🇱 Israel" ;;
+            Italy) echo "🇮🇹 Italy" ;;
+            Japan) echo "🇯🇵 Japan" ;;
+            Latvia) echo "🇱🇻 Latvia" ;;
+            Luxembourg) echo "🇱🇺 Luxembourg" ;;
+            Malaysia) echo "🇲🇾 Malaysia" ;;
+            Mexico) echo "🇲🇽 Mexico" ;;
+            Moldova) echo "🇲🇩 Moldova" ;;
+            Netherlands) echo "🇳🇱 Netherlands" ;;
+            "New") echo "🇳🇿 New Zealand" ;;
+            Nigeria) echo "🇳🇬 Nigeria" ;;
+            Norway) echo "🇳🇴 Norway" ;;
+            Poland) echo "🇵🇱 Poland" ;;
+            Portugal) echo "🇵🇹 Portugal" ;;
+            Romania) echo "🇷🇴 Romania" ;;
+            Serbia) echo "🇷🇸 Serbia" ;;
+            Singapore) echo "🇸🇬 Singapore" ;;
+            Slovakia) echo "🇸🇰 Slovakia" ;;
+            Slovenia) echo "🇸🇮 Slovenia" ;;
+            "South") echo "🇰🇷 South Korea" ;;
+            Spain) echo "🇪🇸 Spain" ;;
+            Sweden) echo "🇸🇪 Sweden" ;;
+            Switzerland) echo "🇨🇭 Switzerland" ;;
+            Taiwan) echo "🇹🇼 Taiwan" ;;
+            Thailand) echo "🇹🇭 Thailand" ;;
+            Turkey) echo "🇹🇷 Turkey" ;;
+            Ukraine) echo "🇺🇦 Ukraine" ;;
+            UAE) echo "🇦🇪 UAE" ;;
+            UK|United) echo "🇬🇧 UK" ;;
+            USA) echo "🇺🇸 USA" ;;
+            Vietnam) echo "🇻🇳 Vietnam" ;;
+            *) echo "🌍 $country" ;;
+        esac
+    done | sort -u)
+
+    CHOICE=$(echo -e "← Back\n$COUNTRIES" | rofi -dmenu -i -p "Country" -theme-str 'window {width: 400px;}')
+
+    [[ -z "$CHOICE" || "$CHOICE" == "← Back" ]] && exec "$0"
+
+    COUNTRY=$(echo "$CHOICE" | sed 's/^[^ ]* //')
+    connect_server "$COUNTRY"
+}
+
+# Main
+EXIT_NODE=$(get_exit_node)
+
+if [[ -n "$EXIT_NODE" && "$EXIT_NODE" != "null" ]]; then
+    # Connected
+    if [[ "$EXIT_NODE" == *"mullvad"* ]]; then
+        STATUS="🟢 $EXIT_NODE"
+    else
+        STATUS="🟡 $EXIT_NODE"
+    fi
+    OPTIONS="✖ Disconnect
+🌍 Change Server...
+─────────────
+$STATUS"
+else
+    # Disconnected
+    OPTIONS="⚡ Fastest Server
+─────────────
+🇩🇪 Germany
+🇳🇱 Netherlands
+🇸🇪 Sweden
+🇺🇸 USA
+🇬🇧 UK
+🇨🇭 Switzerland
+─────────────
+🌍 All Servers..."
+fi
+
+CHOICE=$(echo -e "$OPTIONS" | rofi -dmenu -i -p "VPN" -theme-str 'window {width: 400px;}')
+
+case "$CHOICE" in
+    "✖ Disconnect") disconnect_vpn ;;
+    *"Fastest"*)
+        SERVER=$(tailscale exit-node list 2>/dev/null | grep -i "mullvad" | head -20 | shuf -n1 | awk '{print $1}')
+        [[ -n "$SERVER" ]] && tailscale set --exit-node="$SERVER" && notify-send "VPN" "Connecting..." -t 2000
+        ;;
+    *"Germany"*) connect_server "germany" ;;
+    *"Netherlands"*) connect_server "netherlands" ;;
+    *"Sweden"*) connect_server "sweden" ;;
+    *"USA"*) connect_server "usa" ;;
+    *"UK"*) connect_server "united kingdom" ;;
+    *"Switzerland"*) connect_server "switzerland" ;;
+    *"All Servers"*|*"Change Server"*) show_all_servers ;;
+esac

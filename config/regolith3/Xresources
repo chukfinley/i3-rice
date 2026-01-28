@@ -15,12 +15,15 @@ regolith.look.path: /usr/share/regolith-look/nord
 wm.binding.exit_app: q
 
 ! Wallpaper
-regolith.wallpaper.file: /home/user/Pictures/wal/wallhaven-ogy9mp.jpg
+regolith.wallpaper.file: /home/user/pic/wal/wallhaven-4x95v4.jpg
 regolith.wallpaper.options: zoom
 
 ! Lock Screen on Super+W (Wifi on Super+Shift+W)
 wm.binding.lock: w
 wm.binding.wifi: Shift+w
+
+! Disable Shift+Space launcher (we use it for floating toggle)
+wm.binding.launcher.cmd: Shift+F12
 
 ! Disable standard workspace keys (replaced by per-monitor script)
 wm.workspace.01.key: F13
