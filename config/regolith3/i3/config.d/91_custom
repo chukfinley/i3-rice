@@ -6,43 +6,13 @@ focus_follows_mouse yes
 floating_modifier $mod
 tiling_drag modifier
 
-# Workspaces per monitor (plain numbers)
-# Laptop: 1-9
-workspace 1 output eDP-1
-workspace 2 output eDP-1
-workspace 3 output eDP-1
-workspace 4 output eDP-1
-workspace 5 output eDP-1
-workspace 6 output eDP-1
-workspace 7 output eDP-1
-workspace 8 output eDP-1
-workspace 9 output eDP-1
-
-# External Monitor 1: 11-19
-workspace 11 output DP-3-1
-workspace 12 output DP-3-1
-workspace 13 output DP-3-1
-workspace 14 output DP-3-1
-workspace 15 output DP-3-1
-workspace 16 output DP-3-1
-workspace 17 output DP-3-1
-workspace 18 output DP-3-1
-workspace 19 output DP-3-1
-
-# External Monitor 2: 21-29
-workspace 21 output DP-3-2
-workspace 22 output DP-3-2
-workspace 23 output DP-3-2
-workspace 24 output DP-3-2
-workspace 25 output DP-3-2
-workspace 26 output DP-3-2
-workspace 27 output DP-3-2
-workspace 28 output DP-3-2
-workspace 29 output DP-3-2
+# Dynamically assign workspaces to monitors on startup
+exec --no-startup-id ~/.local/bin/i3-assign-workspaces
 
 # Autostart
 exec --no-startup-id /usr/bin/dunst
 exec --no-startup-id /usr/bin/signal-desktop --start-in-tray
+exec --no-startup-id redshift
 
 # Custom Keybindings
 

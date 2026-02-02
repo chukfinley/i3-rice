@@ -1,19 +1,28 @@
 #!/bin/bash
 # Fast workspace switching per monitor
+# Dynamically assigns workspace offsets based on connected outputs
 
 ACTION="$1"
 WS_NUM="$2"
 
-# Get focused output from i3
-FOCUSED_OUTPUT=$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused) | .output')
+# Get mouse position
+eval "$(xdotool getmouselocation --shell)"
 
-# Map output to workspace offset
-case "$FOCUSED_OUTPUT" in
-    eDP-1)   OFFSET=0 ;;   # Laptop: workspaces 1-9
-    DP-3-1)  OFFSET=10 ;;  # External 1: workspaces 11-19
-    DP-3-2)  OFFSET=20 ;;  # External 2: workspaces 21-29
-    *)       OFFSET=0 ;;   # Fallback to laptop
-esac
+# Get all active outputs sorted by position (left-to-right, top-to-bottom)
+# and find which output the mouse pointer is on
+OFFSET=0
+i=0
+while IFS= read -r line; do
+    ox=$(echo "$line" | cut -d' ' -f1)
+    oy=$(echo "$line" | cut -d' ' -f2)
+    ow=$(echo "$line" | cut -d' ' -f3)
+    oh=$(echo "$line" | cut -d' ' -f4)
+    if (( X >= ox && X < ox + ow && Y >= oy && Y < oy + oh )); then
+        OFFSET=$((i * 10))
+        break
+    fi
+    ((i++))
+done < <(i3-msg -t get_outputs | jq -r '.[] | select(.active) | "\(.rect.x) \(.rect.y) \(.rect.width) \(.rect.height)"' | sort -n -k1 -k2)
 
 REAL_WS=$((OFFSET + WS_NUM))
 
