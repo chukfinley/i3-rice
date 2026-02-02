@@ -1,0 +1,8 @@
+#!/bin/bash
+# Wrapper around i3lock that restores monitor layout after unlock
+i3lock "$@"
+# After unlock, restore layout and reassign workspaces
+sleep 0.5
+xrandr --output eDP-1 --primary --mode 1920x1080 --pos 0x0 --output HDMI-1 --mode 1920x1080 --pos 1920x0 2>/dev/null
+sleep 0.3
+~/.local/bin/i3-assign-workspaces

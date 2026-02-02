@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=i3 Unlock Monitor
+Exec=/home/user/.local/bin/i3-unlock-monitor
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
