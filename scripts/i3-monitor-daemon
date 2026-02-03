@@ -1,0 +1,24 @@
+#!/bin/bash
+# Monitor daemon that detects display changes and reassigns workspaces
+# Uses xev to listen for RandR events
+
+# Track current output state
+LAST_STATE=""
+
+get_state() {
+    xrandr --query | grep ' connected' | sort
+}
+
+LAST_STATE=$(get_state)
+
+# Listen for RandR screen change events
+xev -root -event randr 2>/dev/null | while read -r line; do
+    if echo "$line" | grep -q "RRScreenChangeNotify"; then
+        sleep 0.5
+        NEW_STATE=$(get_state)
+        if [[ "$NEW_STATE" != "$LAST_STATE" ]]; then
+            LAST_STATE="$NEW_STATE"
+            ~/.local/bin/i3-assign-workspaces
+        fi
+    fi
+done

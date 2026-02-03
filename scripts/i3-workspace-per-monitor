@@ -1,6 +1,6 @@
 #!/bin/bash
 # Fast workspace switching per monitor
-# Dynamically assigns workspace offsets based on connected outputs
+# eDP-1 (laptop) always gets workspaces 1-9, others get 11-19, 21-29, etc.
 
 ACTION="$1"
 WS_NUM="$2"
@@ -8,21 +8,23 @@ WS_NUM="$2"
 # Get mouse position
 eval "$(xdotool getmouselocation --shell)"
 
-# Get all active outputs sorted by position (left-to-right, top-to-bottom)
-# and find which output the mouse pointer is on
+# Get all active outputs with eDP always first, then find which output the mouse is on
 OFFSET=0
 i=0
 while IFS= read -r line; do
-    ox=$(echo "$line" | cut -d' ' -f1)
-    oy=$(echo "$line" | cut -d' ' -f2)
-    ow=$(echo "$line" | cut -d' ' -f3)
-    oh=$(echo "$line" | cut -d' ' -f4)
+    name=$(echo "$line" | cut -d' ' -f1)
+    ox=$(echo "$line" | cut -d' ' -f2)
+    oy=$(echo "$line" | cut -d' ' -f3)
+    ow=$(echo "$line" | cut -d' ' -f4)
+    oh=$(echo "$line" | cut -d' ' -f5)
     if (( X >= ox && X < ox + ow && Y >= oy && Y < oy + oh )); then
         OFFSET=$((i * 10))
         break
     fi
     ((i++))
-done < <(i3-msg -t get_outputs | jq -r '.[] | select(.active) | "\(.rect.x) \(.rect.y) \(.rect.width) \(.rect.height)"' | sort -n -k1 -k2)
+done < <(i3-msg -t get_outputs | jq -r '.[] | select(.active) | "\(.name) \(.rect.x) \(.rect.y) \(.rect.width) \(.rect.height)"' | awk '{
+    if ($1 ~ /^eDP/) print "0 " $0; else print "1 " $0
+}' | sort -n -k1 | cut -d' ' -f2-)
 
 REAL_WS=$((OFFSET + WS_NUM))
 

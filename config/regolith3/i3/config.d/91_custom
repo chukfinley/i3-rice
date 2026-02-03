@@ -6,8 +6,9 @@ focus_follows_mouse yes
 floating_modifier $mod
 tiling_drag modifier
 
-# Dynamically assign workspaces to monitors on startup
+# Dynamically assign workspaces to monitors on startup and monitor changes
 exec --no-startup-id ~/.local/bin/i3-assign-workspaces
+exec --no-startup-id ~/.local/bin/i3-monitor-daemon
 
 # Autostart
 exec --no-startup-id /usr/bin/dunst

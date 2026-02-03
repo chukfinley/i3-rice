@@ -18,8 +18,9 @@ wm.binding.exit_app: q
 regolith.wallpaper.file: /home/user/pic/wal/wallhaven-4x95v4.jpg
 regolith.wallpaper.options: zoom
 
-! Lock Screen on Super+W (Wifi on Super+Shift+W)
+! Lock Screen on Super+W (uses slock via wrapper)
 wm.binding.lock: w
+wm.program.lock: ~/.local/bin/i3-lock-wrapper
 wm.binding.wifi: Shift+w
 
 ! Disable Shift+Space launcher (we use it for floating toggle)

@@ -1,8 +1,25 @@
 #!/bin/bash
-# Wrapper around i3lock that restores monitor layout after unlock
-i3lock "$@"
-# After unlock, restore layout and reassign workspaces
+# Lock screen with slock, then restore monitor layout after unlock
+
+# Save current xrandr state before locking
+XRANDR_STATE=$(xrandr --current)
+
+slock
+
+# slock blocks until the screen is unlocked
 sleep 0.5
-xrandr --output eDP-1 --primary --mode 1920x1080 --pos 0x0 --output HDMI-1 --mode 1920x1080 --pos 1920x0 2>/dev/null
+
+# Restore the saved xrandr configuration
+echo "$XRANDR_STATE" | grep ' connected' | while read -r line; do
+    output=$(echo "$line" | awk '{print $1}')
+    # Extract mode and position: e.g. "1920x1080+0+0"
+    geometry=$(echo "$line" | grep -oP '\d+x\d+\+\d+\+\d+')
+    if [[ -n "$geometry" ]]; then
+        mode=$(echo "$geometry" | grep -oP '^\d+x\d+')
+        pos=$(echo "$geometry" | grep -oP '\+\d+\+\d+' | tr '+' ' ' | xargs | tr ' ' 'x')
+        xrandr --output "$output" --mode "$mode" --pos "${pos/x/x}" 2>/dev/null
+    fi
+done
+
 sleep 0.3
 ~/.local/bin/i3-assign-workspaces

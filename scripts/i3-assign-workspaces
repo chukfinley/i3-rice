@@ -4,8 +4,10 @@
 
 CONFIG="$HOME/.config/regolith3/i3/config.d/90_workspace_outputs"
 
-# Get active outputs sorted by position (left-to-right, top-to-bottom)
-mapfile -t OUTPUTS < <(i3-msg -t get_outputs | jq -r '.[] | select(.active) | "\(.rect.x) \(.rect.y) \(.name)"' | sort -n -k1 -k2 | awk '{print $3}')
+# Get active outputs with eDP-1 (laptop) always first, then others by position
+mapfile -t OUTPUTS < <(i3-msg -t get_outputs | jq -r '.[] | select(.active) | "\(.rect.x) \(.rect.y) \(.name)"' | awk '{
+    if ($3 ~ /^eDP/) print "0 0 " $3; else print "1 " $1 " " $2 " " $3
+}' | sort -n -k1 -k2 -k3 | awk '{print $NF}')
 
 NUM_OUTPUTS=${#OUTPUTS[@]}
 LAST_OUTPUT="${OUTPUTS[$((NUM_OUTPUTS - 1))]}"
