@@ -1,0 +1,5 @@
+# Battery Optimizer - shows ECO + time remaining
+[battery-optimizer]
+command=/home/user/.local/bin/i3xrocks-battery-optimizer
+interval=5
+markup=pango

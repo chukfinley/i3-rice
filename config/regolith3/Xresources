@@ -18,13 +18,19 @@ wm.binding.exit_app: q
 regolith.wallpaper.file: /home/user/pic/wal/wallhaven-4x95v4.jpg
 regolith.wallpaper.options: zoom
 
-! Lock Screen on Super+W (uses slock via wrapper)
-wm.binding.lock: w
-wm.program.lock: ~/.local/bin/i3-lock-wrapper
+! Lock Screen - handled in i3 config.d/91_custom
+! wm.binding.lock: w
+! wm.program.lock: slock
 wm.binding.wifi: Shift+w
 
-! Disable Shift+Space launcher (we use it for floating toggle)
+! Disable launchers (Super+Space, Super+Ctrl+Space, Super+Alt+Space, Super+Shift+Space)
+wm.binding.launcher.app: Shift+F12
 wm.binding.launcher.cmd: Shift+F12
+wm.binding.launcher.window: Shift+F12
+wm.binding.file_search: Shift+F12
+
+! Disable Bluetooth shortcut (Super+B is used for bar toggle)
+wm.binding.bluetooth: Shift+F12
 
 ! Disable standard workspace keys (replaced by per-monitor script)
 wm.workspace.01.key: F13
@@ -67,3 +73,28 @@ wm.workspace.26.name: 26
 wm.workspace.27.name: 27
 wm.workspace.28.name: 28
 wm.workspace.29.name: 29
+
+! Bar position: top instead of bottom
+wm.bar.position: top
+
+! Dark bar style (transparency handled by picom)
+wm.bar.font: RobotoMono Nerd Font Bold 13
+wm.bar.background.color: #000000
+wm.bar.statusline.color: #d1d5db
+wm.bar.separator.color: #8b9098
+
+wm.bar.workspace.focused.border.color: #b9c0c9
+wm.bar.workspace.focused.background.color: #b9c0c9
+wm.bar.workspace.focused.text.color: #151a21
+
+wm.bar.workspace.active.border.color: #4d535d
+wm.bar.workspace.active.background.color: #4d535d
+wm.bar.workspace.active.text.color: #dde2e9
+
+wm.bar.workspace.inactive.border.color: #000000
+wm.bar.workspace.inactive.background.color: #000000
+wm.bar.workspace.inactive.text.color: #b8bec8
+
+wm.bar.workspace.urgent.border.color: #d85c5c
+wm.bar.workspace.urgent.background.color: #d85c5c
+wm.bar.workspace.urgent.text.color: #ffffff

@@ -1,0 +1,5 @@
+[info]
+command=true
+interval=once
+separator=false
+separator_block_width=0

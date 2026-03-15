@@ -1,0 +1,501 @@
+#!/usr/bin/env python3
+
+import html
+import json
+import os
+import select
+import shutil
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from glob import glob
+from datetime import datetime
+
+
+CACHE_DIR = os.path.join(os.path.expanduser(os.environ.get("XDG_CACHE_HOME", "~/.cache")), "i3xrocks-ai-usage")
+CACHE_FILE = os.path.join(CACHE_DIR, "snapshot.json")
+LOCK_FILE = os.path.join(CACHE_DIR, "refresh.lock")
+MAX_AGE_SECONDS = 120
+LOCK_MAX_AGE_SECONDS = 60
+
+CODEX_USAGE_URL = "https://chatgpt.com/codex/settings/usage"
+CLAUDE_USAGE_URL = "https://claude.ai/settings/usage"
+
+
+def xres(resource: str, default: str) -> str:
+    try:
+        proc = subprocess.run(
+            ["xrescat", resource, default],
+            capture_output=True,
+            text=True,
+            timeout=1,
+            check=False,
+        )
+        value = proc.stdout.strip()
+        return value if value else default
+    except Exception:
+        return default
+
+
+def find_executable(name: str):
+    direct = shutil.which(name)
+    if direct:
+        return direct
+
+    home = os.path.expanduser("~")
+    candidates = [
+        os.path.join(home, ".local", "bin", name),
+        os.path.join(home, ".npm-global", "bin", name),
+        os.path.join(home, ".opencode", "bin", name),
+    ]
+
+    for item in sorted(glob(os.path.join(home, ".nvm", "versions", "node", "*", "bin", name)), reverse=True):
+        candidates.append(item)
+
+    for path in candidates:
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    return None
+
+
+def clamp_percent(value):
+    try:
+        num = int(round(float(value)))
+    except Exception:
+        return None
+    return max(0, min(100, num))
+
+
+def iso_to_epoch(value):
+    if not value:
+        return None
+    text = str(value)
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        return int(datetime.fromisoformat(text).timestamp())
+    except Exception:
+        return None
+
+
+def fetch_codex():
+    codex_bin = find_executable("codex")
+    if not codex_bin:
+        return {"ok": False, "error": "codex CLI not found"}
+
+    process = None
+    try:
+        process = subprocess.Popen(
+            [codex_bin, "-s", "read-only", "-a", "untrusted", "app-server"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+
+        requests = [
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"clientInfo": {"name": "i3xrocks-ai-usage", "version": "1.0"}},
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "account/read",
+                "params": {"refreshToken": False},
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "account/rateLimits/read",
+                "params": None,
+            },
+        ]
+
+        for payload in requests:
+            process.stdin.write(json.dumps(payload) + "\n")
+            process.stdin.flush()
+
+        responses = {}
+        deadline = time.time() + 8
+
+        while time.time() < deadline and len(responses) < 3:
+            readable, _, _ = select.select([process.stdout], [], [], 0.2)
+            if not readable:
+                continue
+            line = process.stdout.readline()
+            if not line:
+                break
+            try:
+                message = json.loads(line)
+            except Exception:
+                continue
+            message_id = message.get("id")
+            if message_id in (1, 2, 3):
+                responses[message_id] = message
+
+        if 3 not in responses:
+            return {"ok": False, "error": "codex rate limits unavailable"}
+
+        account = ((responses.get(2) or {}).get("result") or {}).get("account") or {}
+        rate_result = (responses.get(3) or {}).get("result") or {}
+        rate_limits = rate_result.get("rateLimits") or {}
+        by_limit = rate_result.get("rateLimitsByLimitId") or {}
+        codex_limits = by_limit.get("codex") or rate_limits
+
+        primary = codex_limits.get("primary") or {}
+        secondary = codex_limits.get("secondary") or {}
+
+        five_used = clamp_percent(primary.get("usedPercent"))
+        weekly_used = clamp_percent(secondary.get("usedPercent"))
+
+        return {
+            "ok": True,
+            "email": account.get("email"),
+            "plan": account.get("planType"),
+            "five_hour": {
+                "used": five_used,
+                "left": None if five_used is None else 100 - five_used,
+                "resets_at": primary.get("resetsAt"),
+            },
+            "seven_day": {
+                "used": weekly_used,
+                "left": None if weekly_used is None else 100 - weekly_used,
+                "resets_at": secondary.get("resetsAt"),
+            },
+        }
+    except Exception as error:
+        return {"ok": False, "error": f"codex error: {error}"}
+    finally:
+        if process is not None:
+            try:
+                process.terminate()
+                process.wait(timeout=1)
+            except Exception:
+                try:
+                    process.kill()
+                except Exception:
+                    pass
+
+
+def fetch_claude():
+    creds_path = os.path.expanduser("~/.claude/.credentials.json")
+    if not os.path.exists(creds_path):
+        return {"ok": False, "error": "claude credentials not found"}
+
+    try:
+        with open(creds_path, "r", encoding="utf-8") as file_handle:
+            creds = json.load(file_handle)
+    except Exception as error:
+        return {"ok": False, "error": f"cannot read claude creds: {error}"}
+
+    oauth = creds.get("claudeAiOauth") or {}
+    access_token = oauth.get("accessToken")
+    if not access_token:
+        return {"ok": False, "error": "claude access token missing"}
+
+    request = urllib.request.Request(
+        "https://api.anthropic.com/api/oauth/usage",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "anthropic-beta": "oauth-2025-04-20",
+            "User-Agent": "i3xrocks-ai-usage/1.0",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            usage = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        return {"ok": False, "error": f"claude oauth http {error.code}"}
+    except Exception as error:
+        return {"ok": False, "error": f"claude oauth error: {error}"}
+
+    five_hour = usage.get("five_hour") or {}
+    seven_day = usage.get("seven_day") or {}
+    seven_day_sonnet = usage.get("seven_day_sonnet") or {}
+
+    five_used = clamp_percent(five_hour.get("utilization"))
+    weekly_used = clamp_percent(seven_day.get("utilization"))
+    sonnet_used = clamp_percent(seven_day_sonnet.get("utilization"))
+
+    return {
+        "ok": True,
+        "tier": oauth.get("rateLimitTier"),
+        "subscription": oauth.get("subscriptionType"),
+        "five_hour": {
+            "used": five_used,
+            "left": None if five_used is None else 100 - five_used,
+            "resets_at": iso_to_epoch(five_hour.get("resets_at")),
+        },
+        "seven_day": {
+            "used": weekly_used,
+            "left": None if weekly_used is None else 100 - weekly_used,
+            "resets_at": iso_to_epoch(seven_day.get("resets_at")),
+        },
+        "seven_day_sonnet": {
+            "used": sonnet_used,
+            "left": None if sonnet_used is None else 100 - sonnet_used,
+            "resets_at": iso_to_epoch(seven_day_sonnet.get("resets_at")),
+        },
+    }
+
+
+def load_snapshot():
+    try:
+        with open(CACHE_FILE, "r", encoding="utf-8") as file_handle:
+            return json.load(file_handle)
+    except Exception:
+        return None
+
+
+def save_snapshot(snapshot):
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    temporary_path = CACHE_FILE + ".tmp"
+    with open(temporary_path, "w", encoding="utf-8") as file_handle:
+        json.dump(snapshot, file_handle)
+    os.replace(temporary_path, CACHE_FILE)
+
+
+def refresh_snapshot():
+    snapshot = {
+        "updated_at": int(time.time()),
+        "codex": fetch_codex(),
+        "claude": fetch_claude(),
+    }
+    save_snapshot(snapshot)
+    return snapshot
+
+
+def remove_lock_file():
+    try:
+        if os.path.exists(LOCK_FILE):
+            os.remove(LOCK_FILE)
+    except Exception:
+        pass
+
+
+def spawn_background_refresh():
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    now = time.time()
+    if os.path.exists(LOCK_FILE):
+        lock_age = now - os.path.getmtime(LOCK_FILE)
+        if lock_age < LOCK_MAX_AGE_SECONDS:
+            return
+        remove_lock_file()
+
+    try:
+        with open(LOCK_FILE, "w", encoding="utf-8") as lock_handle:
+            lock_handle.write(str(int(now)))
+    except Exception:
+        return
+
+    subprocess.Popen(
+        [sys.executable, __file__, "--refresh"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def is_stale(snapshot):
+    if not snapshot:
+        return True
+    updated_at = snapshot.get("updated_at")
+    if not isinstance(updated_at, int):
+        return True
+    return int(time.time()) - updated_at > MAX_AGE_SECONDS
+
+
+def percent_text(value):
+    return "--" if value is None else str(value)
+
+
+def summary_text(snapshot):
+    codex = snapshot.get("codex") or {}
+    claude = snapshot.get("claude") or {}
+
+    codex_five = percent_text(((codex.get("five_hour") or {}).get("used")) if codex.get("ok") else None)
+    claude_five = percent_text(((claude.get("five_hour") or {}).get("used")) if claude.get("ok") else None)
+
+    return f"C{codex_five}% A{claude_five}%"
+
+
+def relative_reset(epoch):
+    if epoch is None:
+        return "n/a"
+    delta = int(epoch - time.time())
+    if delta <= 0:
+        return "now"
+    days, rem = divmod(delta, 86400)
+    hours, rem = divmod(rem, 3600)
+    minutes = rem // 60
+    parts = []
+    if days:
+        parts.append(f"{days}d")
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes or not parts:
+        parts.append(f"{minutes}m")
+    return " ".join(parts[:2])
+
+
+def details_text(snapshot):
+    lines = []
+
+    codex = snapshot.get("codex") or {}
+    if codex.get("ok"):
+        five = codex.get("five_hour") or {}
+        week = codex.get("seven_day") or {}
+        lines.append(
+            f"Codex 5h: {percent_text(five.get('used'))}% used, resets in {relative_reset(five.get('resets_at'))}"
+        )
+        lines.append(
+            f"Codex 7d: {percent_text(week.get('used'))}% used, resets in {relative_reset(week.get('resets_at'))}"
+        )
+        email = codex.get("email")
+        plan = codex.get("plan")
+        if email:
+            if plan:
+                lines.append(f"Codex account: {email} ({plan})")
+            else:
+                lines.append(f"Codex account: {email}")
+    else:
+        lines.append(f"Codex: {codex.get('error', 'unavailable')}")
+
+    lines.append("")
+
+    claude = snapshot.get("claude") or {}
+    if claude.get("ok"):
+        five = claude.get("five_hour") or {}
+        week = claude.get("seven_day") or {}
+        sonnet = claude.get("seven_day_sonnet") or {}
+        lines.append(
+            f"Claude 5h: {percent_text(five.get('used'))}% used, resets in {relative_reset(five.get('resets_at'))}"
+        )
+        lines.append(
+            f"Claude 7d: {percent_text(week.get('used'))}% used, resets in {relative_reset(week.get('resets_at'))}"
+        )
+        if sonnet.get("used") is not None:
+            lines.append(f"Claude Sonnet 7d: {percent_text(sonnet.get('used'))}% used")
+        tier = claude.get("tier")
+        subscription = claude.get("subscription")
+        if tier or subscription:
+            if tier and subscription:
+                lines.append(f"Claude plan: {subscription} ({tier})")
+            elif tier:
+                lines.append(f"Claude tier: {tier}")
+            else:
+                lines.append(f"Claude plan: {subscription}")
+    else:
+        lines.append(f"Claude: {claude.get('error', 'unavailable')}")
+
+    updated_at = snapshot.get("updated_at")
+    if isinstance(updated_at, int):
+        lines.append("")
+        lines.append(f"Updated: {datetime.fromtimestamp(updated_at).strftime('%H:%M:%S')}")
+
+    return "\n".join(lines)
+
+
+def notify(message):
+    if shutil.which("notify-send"):
+        subprocess.Popen(["notify-send", "AI usage", message])
+
+
+def open_url(url):
+    if shutil.which("xdg-open"):
+        subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def menu_choice():
+    options = "Refresh now\nOpen Codex usage\nOpen Claude usage\n"
+    if shutil.which("rofi"):
+        proc = subprocess.run(
+            ["rofi", "-dmenu", "-i", "-p", "AI Usage"],
+            input=options,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return proc.stdout.strip()
+    if shutil.which("dmenu"):
+        proc = subprocess.run(
+            ["dmenu", "-p", "AI Usage"],
+            input=options,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return proc.stdout.strip()
+    return ""
+
+
+def handle_button(snapshot):
+    button = os.environ.get("BLOCK_BUTTON") or os.environ.get("button") or ""
+    if button == "1":
+        snapshot = refresh_snapshot()
+        notify(details_text(snapshot))
+        return snapshot
+    if button == "2":
+        snapshot = refresh_snapshot()
+        notify("Refreshed")
+        return snapshot
+    if button == "3":
+        choice = menu_choice()
+        if choice == "Refresh now":
+            snapshot = refresh_snapshot()
+            notify(details_text(snapshot))
+        elif choice == "Open Codex usage":
+            open_url(CODEX_USAGE_URL)
+        elif choice == "Open Claude usage":
+            open_url(CLAUDE_USAGE_URL)
+        return snapshot
+    if button:
+        return snapshot
+    return snapshot
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--refresh":
+        try:
+            refresh_snapshot()
+        finally:
+            remove_lock_file()
+        return
+
+    snapshot = load_snapshot()
+    if is_stale(snapshot):
+        spawn_background_refresh()
+
+    if snapshot is None:
+        snapshot = {
+            "updated_at": int(time.time()),
+            "codex": {"ok": False, "error": "loading"},
+            "claude": {"ok": False, "error": "loading"},
+        }
+
+    snapshot = handle_button(snapshot)
+
+    label_color = os.environ.get("label_color") or xres("i3xrocks.label.color", "#7B8394")
+    value_color = os.environ.get("value_color") or os.environ.get("color") or xres("i3xrocks.value.color", "#D8DEE9")
+    value_font = os.environ.get("font") or xres("i3xrocks.value.font", "RobotoMono Nerd Font Bold 13")
+
+    label = html.escape("AI")
+    summary = html.escape(summary_text(snapshot))
+    font = html.escape(value_font)
+    label_c = html.escape(label_color)
+    value_c = html.escape(value_color)
+
+    print(
+        f'<span font_desc="{font}" color="{label_c}">{label}</span>'
+        f'<span font_desc="{font}" color="{value_c}"> {summary}</span>'
+    )
+
+
+if __name__ == "__main__":
+    main()

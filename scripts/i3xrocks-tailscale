@@ -1,30 +1,245 @@
-#!/bin/bash
-# Custom tailscale block - shows Mullvad VPN status
+#!/usr/bin/env python3
 
-LABEL_COLOR=${label_color:-$(xrescat i3xrocks.label.color)}
-VALUE_COLOR=${value_color:-$(xrescat i3xrocks.value.color)}
-VALUE_FONT=${font:-$(xrescat i3xrocks.value.font)}
+import html
+import json
+import os
+import shutil
+import subprocess
 
-# Check if tailscale is connected
-if ! tailscale status &>/dev/null; then
-    exit 0
-fi
 
-# Check current exit node
-EXIT_NODE=$(tailscale status --json 2>/dev/null | jq -r '
-    .Peer as $peers |
-    to_entries |
-    map(select(.value.ExitNode == true)) |
-    .[0].value.HostName // empty
-' 2>/dev/null)
+def xres(resource: str, default: str) -> str:
+    try:
+        proc = subprocess.run(
+            ["xrescat", resource, default],
+            capture_output=True,
+            text=True,
+            timeout=1,
+            check=False,
+        )
+        value = proc.stdout.strip()
+        return value if value else default
+    except Exception:
+        return default
 
-if [[ -z "$EXIT_NODE" ]]; then
-    # No exit node - just show tailscale connected
-    echo "<span color=\"${LABEL_COLOR}\" font_desc=\"${VALUE_FONT}\">󰖂</span>"
-elif [[ "$EXIT_NODE" == *"mullvad"* ]]; then
-    # Mullvad VPN active
-    echo "<span color=\"#A3BE8C\" font_desc=\"${VALUE_FONT}\">󰖂 VPN</span>"
-else
-    # Other exit node
-    echo "<span color=\"${VALUE_COLOR}\" font_desc=\"${VALUE_FONT}\">󰖂 ${EXIT_NODE%%.*}</span>"
-fi
+
+def notify(message: str):
+    if shutil.which("notify-send"):
+        subprocess.Popen(["notify-send", "Tailscale", message])
+
+
+def get_status():
+    proc = subprocess.run(
+        ["tailscale", "status", "--json"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None, proc.stderr.strip() or "tailscale unavailable"
+    try:
+        return json.loads(proc.stdout), None
+    except Exception:
+        return None, "cannot parse tailscale status"
+
+
+def node_name(peer):
+    host = (peer.get("HostName") or peer.get("DNSName") or "").strip()
+    return host.split(".")[0] if host else "unknown"
+
+
+def location_label(peer):
+    location = peer.get("Location") or {}
+    country = location.get("CountryCode") or location.get("Country") or ""
+    city = location.get("City") or ""
+    if country and city:
+        return f"{country} {city}"
+    return country or city
+
+
+def current_exit_node(status):
+    peers = (status or {}).get("Peer") or {}
+    for peer in peers.values():
+        if peer.get("ExitNode"):
+            return {
+                "name": node_name(peer),
+                "ip": (peer.get("TailscaleIPs") or [None])[0],
+                "location": location_label(peer),
+            }
+    return None
+
+
+def available_exit_nodes(status):
+    peers = (status or {}).get("Peer") or {}
+    nodes = []
+    for peer in peers.values():
+        if not peer.get("ExitNodeOption"):
+            continue
+        ip = (peer.get("TailscaleIPs") or [None])[0]
+        if not ip:
+            continue
+        nodes.append(
+            {
+                "name": node_name(peer),
+                "ip": ip,
+                "location": location_label(peer),
+            }
+        )
+    nodes.sort(key=lambda item: (item["name"], item["location"], item["ip"]))
+    return nodes
+
+
+def run_tailscale_set(arguments):
+    commands = [["tailscale", "set", *arguments]]
+    if shutil.which("pkexec"):
+        commands.append(["pkexec", "tailscale", "set", *arguments])
+
+    last_error = ""
+    for command in commands:
+        proc = subprocess.run(command, capture_output=True, text=True, check=False)
+        if proc.returncode == 0:
+            return True, ""
+        last_error = (proc.stderr or proc.stdout or "").strip()
+    return False, last_error or "failed to set exit node"
+
+
+def choose_option(options_text):
+    if shutil.which("rofi"):
+        proc = subprocess.run(
+            ["rofi", "-dmenu", "-i", "-p", "Tailscale Exit Node"],
+            input=options_text,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return proc.stdout.strip()
+    if shutil.which("dmenu"):
+        proc = subprocess.run(
+            ["dmenu", "-p", "Tailscale Exit Node"],
+            input=options_text,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return proc.stdout.strip()
+    return ""
+
+
+def open_exit_menu(status):
+    current = current_exit_node(status)
+    nodes = available_exit_nodes(status)
+
+    labels = []
+    actions = {}
+
+    disconnect_label = "Disconnect exit node"
+    if current is None:
+        disconnect_label = "Disconnect exit node (none active)"
+    labels.append(disconnect_label)
+    actions[disconnect_label] = {"type": "disconnect"}
+
+    for node in nodes:
+        prefix = "* " if current and current.get("ip") == node.get("ip") else ""
+        location = f" [{node['location']}]" if node.get("location") else ""
+        label = f"{prefix}{node['name']}{location}"
+        labels.append(label)
+        actions[label] = {"type": "connect", "ip": node["ip"], "name": node["name"]}
+
+    choice = choose_option("\n".join(labels) + "\n")
+    if not choice:
+        return status
+
+    action = actions.get(choice)
+    if not action:
+        return status
+
+    if action["type"] == "disconnect":
+        ok, error = run_tailscale_set(["--exit-node="])
+        if ok:
+            notify("Exit node disconnected")
+        else:
+            notify(f"Disconnect failed: {error}")
+    else:
+        ok, error = run_tailscale_set([f"--exit-node={action['ip']}", "--exit-node-allow-lan-access=true"])
+        if ok:
+            notify(f"Exit node set: {action['name']}")
+        else:
+            notify(f"Set exit node failed: {error}")
+
+    refreshed, _ = get_status()
+    return refreshed or status
+
+
+def details_text(status):
+    current = current_exit_node(status)
+    nodes = available_exit_nodes(status)
+    backend_state = (status or {}).get("BackendState") or "unknown"
+
+    lines = [f"Backend: {backend_state}"]
+    if current:
+        where = f" ({current['location']})" if current.get("location") else ""
+        lines.append(f"Exit node: {current['name']}{where}")
+    else:
+        lines.append("Exit node: not set")
+    lines.append(f"Available exit nodes: {len(nodes)}")
+
+    health = (status or {}).get("Health") or []
+    if health:
+        lines.append(f"Health: {health[0]}")
+    return "\n".join(lines)
+
+
+def render(status):
+    label_color = os.environ.get("label_color") or xres("i3xrocks.label.color", "#7B8394")
+    value_color = os.environ.get("value_color") or os.environ.get("color") or xres("i3xrocks.value.color", "#D8DEE9")
+    active_color = "#A3BE8C"
+    value_font = os.environ.get("font") or xres("i3xrocks.value.font", "RobotoMono Nerd Font Bold 13")
+
+    current = current_exit_node(status)
+    if current:
+        text = f"TS {current['name']}"
+        color = active_color
+    else:
+        text = "TS"
+        color = value_color
+
+    font = html.escape(value_font)
+    left = html.escape("TS")
+    value = html.escape(text.replace("TS ", "", 1) if text.startswith("TS ") else "")
+    label = html.escape(label_color)
+    body = html.escape(color)
+
+    if value:
+        print(
+            f'<span font_desc="{font}" color="{label}">{left}</span>'
+            f'<span font_desc="{font}" color="{body}"> {value}</span>'
+        )
+    else:
+        print(f'<span font_desc="{font}" color="{label}">{left}</span>')
+
+
+def main():
+    status, error = get_status()
+    if status is None:
+        if error:
+            return
+        return
+
+    button = os.environ.get("BLOCK_BUTTON") or os.environ.get("button") or ""
+    if button == "1":
+        status = open_exit_menu(status)
+    elif button == "2":
+        ok, message = run_tailscale_set(["--exit-node="])
+        if ok:
+            notify("Exit node disconnected")
+            refreshed, _ = get_status()
+            status = refreshed or status
+        else:
+            notify(f"Disconnect failed: {message}")
+    elif button == "3":
+        notify(details_text(status))
+
+    render(status)
+
+
+if __name__ == "__main__":
+    main()

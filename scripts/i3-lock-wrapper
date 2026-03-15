@@ -1,25 +1,84 @@
 #!/bin/bash
-# Lock screen with slock, then restore monitor layout after unlock
+# Lock screen with slock, then restore monitor layout after unlock.
+#
+# Thunderbolt/MST docks often leave external monitors in a zombie state
+# after slock: xrandr reports them as connected with the right mode, but
+# the displays show nothing.  A simple xrandr re-apply doesn't help —
+# the MST hub ignores it because it thinks nothing changed.
+#
+# The fix is "mode cycling": turn external outputs off, set a low-res
+# mode to force re-negotiation, then switch to the native mode.
 
-# Save current xrandr state before locking
-XRANDR_STATE=$(xrandr --current)
+# --- Save layout before locking ---
+# Parse each connected output's mode and position from xrandr.
+declare -A SAVED_MODE SAVED_POS
+XRANDR_BEFORE=$(xrandr --current)
 
-slock
-
-# slock blocks until the screen is unlocked
-sleep 0.5
-
-# Restore the saved xrandr configuration
-echo "$XRANDR_STATE" | grep ' connected' | while read -r line; do
+while read -r line; do
     output=$(echo "$line" | awk '{print $1}')
-    # Extract mode and position: e.g. "1920x1080+0+0"
     geometry=$(echo "$line" | grep -oP '\d+x\d+\+\d+\+\d+')
     if [[ -n "$geometry" ]]; then
-        mode=$(echo "$geometry" | grep -oP '^\d+x\d+')
-        pos=$(echo "$geometry" | grep -oP '\+\d+\+\d+' | tr '+' ' ' | xargs | tr ' ' 'x')
-        xrandr --output "$output" --mode "$mode" --pos "${pos/x/x}" 2>/dev/null
+        SAVED_MODE[$output]=$(echo "$geometry" | grep -oP '^\d+x\d+')
+        SAVED_POS[$output]=$(echo "$geometry" | grep -oP '\+\d+\+\d+' | sed 's/^+//;s/+/x/')
     fi
+done < <(echo "$XRANDR_BEFORE" | grep ' connected')
+
+# Collect external (non-eDP) outputs that were active
+EXT_OUTPUTS=()
+for out in "${!SAVED_MODE[@]}"; do
+    [[ "$out" != eDP* ]] && EXT_OUTPUTS+=("$out")
 done
 
-sleep 0.3
-~/.local/bin/i3-assign-workspaces
+# --- Lock ---
+slock
+# slock blocks until the screen is unlocked
+
+# --- Restore after unlock ---
+if [[ ${#EXT_OUTPUTS[@]} -eq 0 ]]; then
+    # No external monitors were connected before lock — nothing to do
+    exit 0
+fi
+
+sleep 0.5
+
+# Step 1: Turn off all external outputs
+OFF_ARGS=()
+for out in "${EXT_OUTPUTS[@]}"; do
+    OFF_ARGS+=(--output "$out" --off)
+done
+xrandr "${OFF_ARGS[@]}" 2>/dev/null
+sleep 3  # give MST hub time to fully release
+
+# Step 2: Bring them back at a low resolution to force re-negotiation
+LOW_ARGS=(--output eDP-1 --auto --primary)
+for out in "${EXT_OUTPUTS[@]}"; do
+    LOW_ARGS+=(--output "$out" --mode 1920x1080)
+    # Restore relative positions so they don't overlap
+    if [[ -n "${SAVED_POS[$out]}" ]]; then
+        LOW_ARGS+=(--pos "${SAVED_POS[$out]}")
+    fi
+done
+xrandr "${LOW_ARGS[@]}" 2>/dev/null
+sleep 2  # let MST hub enumerate at low-res
+
+# Step 3: Switch to native resolution
+NATIVE_ARGS=(--output eDP-1 --auto --primary)
+for out in "${EXT_OUTPUTS[@]}"; do
+    NATIVE_ARGS+=(--output "$out" --mode "${SAVED_MODE[$out]}")
+    if [[ -n "${SAVED_POS[$out]}" ]]; then
+        NATIVE_ARGS+=(--pos "${SAVED_POS[$out]}")
+    fi
+done
+xrandr "${NATIVE_ARGS[@]}" 2>/dev/null
+
+# Wake up monitors via DPMS
+xset dpms force on
+
+# Restore wallpaper
+[[ -x ~/.fehbg ]] && ~/.fehbg
+
+# The daemon will pick up any changes automatically.
+# Only call directly if the daemon isn't running.
+if ! pgrep -f 'i3-monitor-daemon' >/dev/null; then
+    ~/.local/bin/i3-assign-workspaces
+fi

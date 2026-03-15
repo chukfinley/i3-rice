@@ -6,16 +6,26 @@ focus_follows_mouse yes
 floating_modifier $mod
 tiling_drag modifier
 
-# Dynamically assign workspaces to monitors on startup and monitor changes
+# Dynamically assign workspaces to monitors on startup and monitor changes.
+# i3-assign-workspaces runs once at startup; the daemon watches for changes.
+# The daemon has a pidfile guard so duplicates from i3 restart are harmless.
 exec --no-startup-id ~/.local/bin/i3-assign-workspaces
-exec --no-startup-id ~/.local/bin/i3-monitor-daemon
+exec_always --no-startup-id ~/.local/bin/i3-monitor-daemon
 
 # Autostart
 exec --no-startup-id /usr/bin/dunst
 exec --no-startup-id /usr/bin/signal-desktop --start-in-tray
 exec --no-startup-id redshift
+exec --no-startup-id greenclip daemon
+exec --no-startup-id vicinae server
 
 # Custom Keybindings
+
+# Super+B to toggle bar visibility
+bindsym $mod+b bar mode toggle
+
+# Super+W to lock screen (sleep lets i3 release the key grab before slock grabs)
+bindsym --release $mod+w exec slock
 
 # Super+Shift+Space to toggle floating mode
 bindsym $mod+Shift+space floating toggle

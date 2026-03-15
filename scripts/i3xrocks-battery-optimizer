@@ -1,0 +1,58 @@
+#!/bin/bash
+# Battery Optimizer status block for i3xrocks/Regolith
+# Shows: ECO 4h32m when on battery with eco mode
+# Left-click: toggle between battery/ac mode
+
+VALUE_FONT=${font:-$(xrescat i3xrocks.value.font "Source Code Pro Medium 13")}
+
+COLOR_ECO="#A3BE8C"
+COLOR_WARN="#EBCB8B"
+
+# Read state
+AC_ONLINE=$(cat /sys/class/power_supply/AC/online 2>/dev/null)
+TURBO_OFF=$(cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null)
+PL1=$(cat /sys/class/powercap/intel-rapl:0/constraint_0_power_limit_uw 2>/dev/null || echo 0)
+PL1_W=$(( PL1 / 1000000 ))
+
+# On AC and no ECO → show nothing
+if [[ "$AC_ONLINE" == "1" && !("$TURBO_OFF" == "1" && "$PL1_W" -le 10) ]]; then
+    exit 0
+fi
+
+# Calculate time remaining
+TIME_LEFT=""
+if [[ "$AC_ONLINE" == "0" ]]; then
+    ENERGY_NOW=$(cat /sys/class/power_supply/BAT0/energy_now 2>/dev/null || echo 0)
+    POWER_NOW=$(cat /sys/class/power_supply/BAT0/power_now 2>/dev/null || echo 0)
+    if [[ "$POWER_NOW" -gt 0 ]]; then
+        HOURS=$(( ENERGY_NOW / POWER_NOW ))
+        MINS=$(( (ENERGY_NOW * 60 / POWER_NOW) % 60 ))
+        TIME_LEFT="${HOURS}h${MINS}m"
+    fi
+fi
+
+# Handle click: toggle mode
+if [[ "${BLOCK_BUTTON}" == "1" ]]; then
+    if [[ "$TURBO_OFF" == "1" && "$PL1_W" -le 10 ]]; then
+        pkexec /usr/local/bin/battery-optimizer ac &>/dev/null
+    else
+        pkexec /usr/local/bin/battery-optimizer battery &>/dev/null
+    fi
+    sleep 0.3
+    exit 0
+fi
+
+# Build display
+if [[ "$TURBO_OFF" == "1" && "$PL1_W" -le 10 ]]; then
+    if [[ -n "$TIME_LEFT" ]]; then
+        DISPLAY="ECO ${TIME_LEFT}"
+    else
+        DISPLAY="ECO"
+    fi
+    COLOR="$COLOR_ECO"
+else
+    DISPLAY="$TIME_LEFT"
+    COLOR="$COLOR_WARN"
+fi
+
+echo "<span font_desc=\"${VALUE_FONT}\" color=\"${COLOR}\">${DISPLAY}</span>"

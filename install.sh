@@ -23,6 +23,7 @@ echo "[1/5] Installing dependencies..."
 sudo apt update
 sudo apt install -y \
     i3-wm \
+    awesome \
     alacritty \
     qt5ct \
     qt6ct \
@@ -31,7 +32,9 @@ sudo apt install -y \
     picom \
     feh \
     xdotool \
+    xclip \
     rofi \
+    flameshot \
     engrampa \
     caja-open-terminal \
     caja-admin \
@@ -52,7 +55,7 @@ echo "[2/5] Backing up existing configs..."
 mkdir -p "$BACKUP_DIR"
 
 # Backup existing configs
-for dir in regolith3 qt5ct qt6ct alacritty environment.d autostart mpv yt-dlp xdg-desktop-portal; do
+for dir in regolith3 awesome qt5ct qt6ct alacritty environment.d autostart mpv yt-dlp xdg-desktop-portal; do
     if [[ -e "$HOME/.config/$dir" ]]; then
         echo "  Backing up ~/.config/$dir"
         cp -r "$HOME/.config/$dir" "$BACKUP_DIR/"
@@ -61,6 +64,11 @@ done
 
 if [[ -e "$HOME/.config/picom.conf" ]]; then
     cp "$HOME/.config/picom.conf" "$BACKUP_DIR/"
+fi
+
+if [[ -e "$HOME/.config/dwm/picom.conf" ]]; then
+    mkdir -p "$BACKUP_DIR/dwm"
+    cp "$HOME/.config/dwm/picom.conf" "$BACKUP_DIR/dwm/"
 fi
 
 if [[ -e "$HOME/.config/mimeapps.list" ]]; then
@@ -76,7 +84,7 @@ echo "[3/5] Creating symlinks..."
 mkdir -p "$HOME/.config"
 
 # Symlink config directories
-for dir in regolith3 qt5ct qt6ct alacritty environment.d autostart mpv yt-dlp xdg-desktop-portal; do
+for dir in regolith3 awesome qt5ct qt6ct alacritty environment.d autostart mpv yt-dlp xdg-desktop-portal; do
     src="$SCRIPT_DIR/config/$dir"
     dst="$HOME/.config/$dir"
 
@@ -97,6 +105,11 @@ fi
 
 # Symlink picom.conf
 if [[ -f "$SCRIPT_DIR/picom.conf" ]]; then
+    mkdir -p "$HOME/.config/dwm"
+    rm -f "$HOME/.config/dwm/picom.conf"
+    ln -sf "$SCRIPT_DIR/picom.conf" "$HOME/.config/dwm/picom.conf"
+    echo "  Linked: ~/.config/dwm/picom.conf"
+
     rm -f "$HOME/.config/picom.conf"
     ln -sf "$SCRIPT_DIR/picom.conf" "$HOME/.config/picom.conf"
     echo "  Linked: ~/.config/picom.conf"
@@ -116,11 +129,19 @@ mkdir -p "$HOME/.local/bin"
 for script in "$SCRIPT_DIR/scripts/"*; do
     if [[ -f "$script" ]]; then
         name=$(basename "$script")
-        cp "$script" "$HOME/.local/bin/$name"
-        chmod +x "$HOME/.local/bin/$name"
-        echo "  Installed: ~/.local/bin/$name"
+        rm -f "$HOME/.local/bin/$name"
+        ln -sf "$script" "$HOME/.local/bin/$name"
+        echo "  Linked: ~/.local/bin/$name"
     fi
 done
+
+# Install greenclip (clipboard persistence daemon)
+if ! command -v greenclip &>/dev/null; then
+    echo "  Installing greenclip..."
+    curl -fSL https://github.com/erebe/greenclip/releases/latest/download/greenclip -o "$HOME/.local/bin/greenclip"
+    chmod +x "$HOME/.local/bin/greenclip"
+    echo "  Installed: ~/.local/bin/greenclip"
+fi
 
 # Update scripts with correct home path
 sed -i "s|/home/user|$HOME|g" "$HOME/.local/bin/"* 2>/dev/null || true

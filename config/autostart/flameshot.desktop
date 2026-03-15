@@ -1,0 +1,15 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+NoDisplay=false
+Name=flameshot
+GenericName=Screenshot tool
+Comment=Powerful yet simple screenshot software
+Categories=Graphics;Utility;
+Keywords=screenshot;capture;snip;annotate;
+TryExec=flameshot
+Exec=flameshot
+StartupNotify=false
+Terminal=false
+Icon=flameshot
+X-GNOME-Autostart-enabled=true

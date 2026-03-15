@@ -1,43 +1,48 @@
 #!/bin/bash
-# Configure monitor layout when docking
+# Configure monitor layout when docking.
+#
+# Uses a SINGLE xrandr call to avoid flooding the RandR event bus.
+# The i3-monitor-daemon will detect the change and call
+# i3-assign-workspaces automatically — no need to restart i3 here.
+
 export DISPLAY=:0
 export XAUTHORITY=/home/user/.Xauthority
 
-# Force DPMS on (wake all monitors)
+# Wake monitors
 xset dpms force on
-sleep 1  # give MST hub a moment
+sleep 1  # give MST hub a moment to enumerate outputs
 
-# Check which DP-3 outputs exist
-EXTERNAL_MONITORS=()
+# Query xrandr once to check which outputs are connected
+XRANDR_STATUS=$(xrandr)
+
+# Build a single xrandr command for the desired layout.
+# Start with laptop as primary, then add whatever external monitors exist.
+XRANDR_ARGS=(--output eDP-1 --auto --primary)
+
 for OUT in DP-3-1 DP-3-2 DP-3-3; do
-    if xrandr | grep -q "^$OUT connected"; then
-        EXTERNAL_MONITORS+=($OUT)
+    if echo "$XRANDR_STATUS" | grep -q "^$OUT connected"; then
+        case "$OUT" in
+            DP-3-1) XRANDR_ARGS+=(--output "$OUT" --auto --above eDP-1) ;;
+            DP-3-2) XRANDR_ARGS+=(--output "$OUT" --auto --right-of DP-3-1) ;;
+            *)      XRANDR_ARGS+=(--output "$OUT" --auto) ;;
+        esac
+    else
+        # Explicitly turn off disconnected outputs
+        XRANDR_ARGS+=(--output "$OUT" --off)
     fi
 done
 
-# Keep laptop screen on, externals go above it
-xrandr --output eDP-1 --auto --primary
+# One single xrandr call — one RandR event
+xrandr "${XRANDR_ARGS[@]}"
 
-# Enable external monitors and set layout
-for i in "${EXTERNAL_MONITORS[@]}"; do
-    xrandr --output $i --auto
-done
-
-# Position external monitors above laptop
-xrandr --output DP-3-1 --auto --above eDP-1
-xrandr --output DP-3-2 --auto --right-of DP-3-1
-
-# Extra safeguard: force DPMS on again
+# Wake monitors again (some MST hubs need a nudge after mode-setting)
 xset dpms force on
 
-# Optional retry loop (fixes slow MST wake)
-for i in 1 2; do
-    for OUT in "${EXTERNAL_MONITORS[@]}"; do
-        xrandr --output $OUT --auto
-    done
-    sleep 0.5
-done
-
-# Restore wallpaper and refresh i3
+# Restore wallpaper
 [[ -x ~/.fehbg ]] && ~/.fehbg
-i3-msg restart 2>/dev/null || true
+
+# The daemon handles workspace reassignment automatically.
+# Only call i3-assign-workspaces directly if the daemon isn't running.
+if ! pgrep -f 'i3-monitor-daemon' >/dev/null; then
+    ~/.local/bin/i3-assign-workspaces
+fi

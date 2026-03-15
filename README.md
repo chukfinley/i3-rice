@@ -1,14 +1,16 @@
 # i3-rice
 
-Regolith/i3 dotfiles with per-monitor workspaces, Qt theming, and multi-monitor support.
+Regolith/i3 dotfiles with an optional AwesomeWM profile, Qt theming, and multi-monitor support.
 
 ## Features
 
 - **Per-monitor workspaces**: Super+1-9 switches workspaces relative to the focused monitor
+- **AwesomeWM profile**: i3-like shortcuts plus clickable top-bar dropdown menus
 - **Qt theming**: Consistent dark theme for Qt5/Qt6 apps (Flameshot, etc.)
 - **Multi-monitor support**: Dock/undock scripts for laptop + external monitors
 - **Alacritty terminal**: Dark theme with Comic Code font
 - **Picom compositor**: Shadows and transparency for Alacritty
+- **Flameshot autostart**: Screenshot tool starts automatically in tray
 
 ## Quick Install
 
@@ -17,6 +19,18 @@ git clone https://github.com/chukfinley/i3-rice.git
 cd i3-rice
 ./install.sh
 ```
+
+## Window Manager Choice
+
+- **i3/Regolith** remains available with the existing setup.
+- **AwesomeWM** config is shipped at `config/awesome/rc.lua`.
+- Test Awesome from an i3 session with:
+
+```bash
+awesome --replace
+```
+
+If you see `another window manager is already running`, use `awesome --replace` (or select Awesome on the login screen).
 
 ## Monitor Layout
 
@@ -48,7 +62,9 @@ i3-rice/
 │   ├── regolith3/          # Regolith/i3 configs
 │   │   ├── Xresources      # Regolith resources
 │   │   ├── i3/config.d/    # i3 config partials
-│   │   └── flags/          # Regolith feature flags
+│   │   ├── i3xrocks/conf.d/ # Custom bar blocks
+│   │   └── flags/           # Regolith feature flags
+│   ├── awesome/            # AwesomeWM config
 │   ├── qt5ct/              # Qt5 theme config
 │   ├── qt6ct/              # Qt6 theme config
 │   ├── alacritty/          # Terminal config
@@ -68,11 +84,13 @@ i3-rice/
 
 Installed by `install.sh`:
 - i3-wm
+- awesome
 - alacritty
 - qt5ct, qt6ct
 - jq
 - dunst
 - picom
+- flameshot
 - feh
 - xdotool
 - rofi

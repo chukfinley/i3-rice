@@ -67,8 +67,47 @@ application/x-mpegurl=io.mpv.Mpv.desktop
 application/vnd.apple.mpegurl=io.mpv.Mpv.desktop
 audio/x-scpls=io.mpv.Mpv.desktop
 
+# File manager - Caja
+inode/directory=caja.desktop
+application/x-gnome-saved-search=caja.desktop
+x-scheme-handler/file=caja.desktop
+x-scheme-handler/trash=caja.desktop
+
+# Browser - Zen
+text/html=userapp-Zen-9OEYH3.desktop
+x-scheme-handler/http=userapp-Zen-9OEYH3.desktop
+x-scheme-handler/https=userapp-Zen-9OEYH3.desktop
+x-scheme-handler/about=zen-browser.desktop
+x-scheme-handler/unknown=zen-browser.desktop
+x-scheme-handler/chrome=userapp-Zen-9OEYH3.desktop
+application/x-extension-htm=userapp-Zen-9OEYH3.desktop
+application/x-extension-html=userapp-Zen-9OEYH3.desktop
+application/x-extension-shtml=userapp-Zen-9OEYH3.desktop
+application/xhtml+xml=userapp-Zen-9OEYH3.desktop
+application/x-extension-xhtml=userapp-Zen-9OEYH3.desktop
+application/x-extension-xht=userapp-Zen-9OEYH3.desktop
+
+# Apps
+x-scheme-handler/discord=vesktop.desktop
+text/x-c++src=cursor.desktop
+text/plain=dev.zed.Zed.desktop
+application/zip=org.gnome.FileRoller.desktop
+
 [Added Associations]
 video/mp4=io.mpv.Mpv.desktop
 video/x-matroska=io.mpv.Mpv.desktop
 audio/mpeg=io.mpv.Mpv.desktop
 audio/flac=io.mpv.Mpv.desktop
+x-scheme-handler/http=userapp-Zen-9OEYH3.desktop;
+x-scheme-handler/https=userapp-Zen-9OEYH3.desktop;
+x-scheme-handler/chrome=userapp-Zen-9OEYH3.desktop;
+text/html=userapp-Zen-9OEYH3.desktop;
+application/x-extension-htm=userapp-Zen-9OEYH3.desktop;
+application/x-extension-html=userapp-Zen-9OEYH3.desktop;
+application/x-extension-shtml=userapp-Zen-9OEYH3.desktop;
+application/xhtml+xml=userapp-Zen-9OEYH3.desktop;
+application/x-extension-xhtml=userapp-Zen-9OEYH3.desktop;
+application/x-extension-xht=userapp-Zen-9OEYH3.desktop;
+text/x-c++src=cursor.desktop;
+text/plain=dev.zed.Zed.desktop;
+application/zip=org.gnome.FileRoller.desktop;

@@ -10,7 +10,7 @@ shell = { program = "/usr/bin/zsh" }
 size = 12.5
 
 [font.normal]
-family = "Comic Code"
+family = "ComicCode Nerd Font"
 
 # Hints for window class identification
 [window.class]

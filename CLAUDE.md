@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-This is an i3/Regolith-based Linux desktop configuration with per-monitor workspace management.
+This is an i3/Regolith-based Linux desktop configuration with per-monitor workspace management, plus an optional AwesomeWM profile.
 
 ### Key Components
 
@@ -13,12 +13,16 @@ This is an i3/Regolith-based Linux desktop configuration with per-monitor worksp
   - `i3/config.d/91_custom` - i3 config additions (workspace assignments, keybindings)
   - `flags/` - Regolith feature flags
 
+- **config/awesome/rc.lua** - AwesomeWM config with i3-like shortcuts and dropdown menu bar
+
 - **config/qt5ct/, qt6ct/** - Qt theme configs for consistent dark theme on Qt apps (Flameshot, etc.)
   - Use `standard_dialogs=default` (not gtk3) to avoid text visibility issues in Flameshot menus
 
 - **config/environment.d/qt-theme.conf** - Sets `QT_QPA_PLATFORMTHEME=qt5ct`
 
-- **config/autostart/picom.desktop** - Autostart for picom compositor
+- **config/autostart/** - Autostart entries
+  - `picom.desktop` - Starts picom with `~/.config/dwm/picom.conf`
+  - `flameshot.desktop` - Starts Flameshot in the tray
 
 - **config/applications/** - Custom .desktop files for launchers (rofi, vicinae)
   - `caja.desktop` - Caja without `OnlyShowIn=MATE` (system version is hidden in non-MATE desktops)
@@ -29,7 +33,7 @@ This is an i3/Regolith-based Linux desktop configuration with per-monitor worksp
 
 ### PICOM Configuration
 
-PICOM uses the config at `~/.config/dwm/picom.conf` (NOT in this repo).
+PICOM uses `~/.config/dwm/picom.conf`, symlinked from this repo's `picom.conf` by `install.sh`.
 
 **Important**: After `regolith-look refresh`, picom keeps running but stops working. Always:
 ```bash
@@ -95,6 +99,9 @@ xrdb -merge ~/.config/regolith3/Xresources && i3-msg restart
 
 # Apply monitor layout
 ~/.local/bin/dock-layout.sh
+
+# Try AwesomeWM from current X11 session
+awesome --replace
 ```
 
 ## Custom Keybindings
@@ -129,8 +136,13 @@ When editing configs:
 
 ## i3xrocks Bar Blocks
 
-Installed blocks (shown in bar):
-- i3xrocks-microphone
-- i3xrocks-tailscale
+Custom blocks live in `~/.config/regolith3/i3xrocks/conf.d/` (symlinked from this repo's `config/regolith3/i3xrocks/conf.d/`).
 
-Blocks auto-load from `/usr/share/i3xrocks/conf.d/`. After installing new blocks, run `regolith-look refresh` (and restart picom).
+Current custom blocks:
+- `20_app-launcher` - Disable Regolith app launcher block
+- `20_info` - Disable Regolith help/shortcuts block
+- `01_setup` - Compact separator spacing between blocks
+
+System blocks auto-load from `/usr/share/i3xrocks/conf.d/`.
+
+After changing i3xrocks block config, run `i3-msg restart` (and restart picom).
