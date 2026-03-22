@@ -12,6 +12,9 @@ tiling_drag modifier
 exec --no-startup-id ~/.local/bin/i3-assign-workspaces
 exec_always --no-startup-id ~/.local/bin/i3-monitor-daemon
 
+# Picom: kill and restart on every i3 restart (picom breaks but stays alive)
+exec_always --no-startup-id ~/.local/bin/picom-restart
+
 # Autostart
 exec --no-startup-id /usr/bin/dunst
 exec --no-startup-id /usr/bin/signal-desktop --start-in-tray

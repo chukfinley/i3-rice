@@ -1,5 +1,8 @@
 ! Regolith 3 - Custom Configuration
 
+! Use our picom-restart script instead of Regolith's compositor
+wm.program.compositor: /home/user/.local/bin/picom-restart
+
 ! Alacritty as default terminal
 wm.program.terminal: /usr/local/bin/alacritty
 
@@ -15,7 +18,7 @@ regolith.look.path: /usr/share/regolith-look/nord
 wm.binding.exit_app: q
 
 ! Wallpaper
-regolith.wallpaper.file: /home/user/pic/wal/wallhaven-4x95v4.jpg
+regolith.wallpaper.file: /home/user/pic/wal/wallhaven-gw7o6e.jpg
 regolith.wallpaper.options: zoom
 
 ! Lock Screen - handled in i3 config.d/91_custom
