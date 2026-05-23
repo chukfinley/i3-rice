@@ -16,6 +16,13 @@ LAST_OUTPUT="${OUTPUTS[$((NUM_OUTPUTS - 1))]}"
 # Move existing workspaces to their correct outputs BEFORE reload
 FOCUSED=$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused) | .name')
 
+declare -A USED  # USED[number]=1 for every workspace number already present
+
+for ws_info in $(i3-msg -t get_workspaces | jq -r '.[] | "\(.name):\(.output)"'); do
+    ws="${ws_info%%:*}"
+    [[ "$ws" =~ ^[0-9]+$ ]] && USED[$ws]=1
+done
+
 for ws_info in $(i3-msg -t get_workspaces | jq -r '.[] | "\(.name):\(.output)"'); do
     ws="${ws_info%%:*}"
     current_output="${ws_info##*:}"
@@ -23,9 +30,34 @@ for ws_info in $(i3-msg -t get_workspaces | jq -r '.[] | "\(.name):\(.output)"')
     if [[ "$ws" =~ ^[0-9]+$ ]]; then
         idx=$(( (ws - 1) / 10 ))
         if (( idx >= NUM_OUTPUTS )); then
+            # Workspace number belongs to a removed output — reparent to
+            # last remaining output AND renumber into that output's range
+            # so per-monitor shortcuts (Super+1-9) can reach it.
             target="$LAST_OUTPUT"
+            target_idx=$((NUM_OUTPUTS - 1))
         else
             target="${OUTPUTS[$idx]}"
+            target_idx=$idx
+        fi
+
+        # Renumber if ws falls outside target's [idx*10+1 .. idx*10+9] range
+        range_lo=$((target_idx * 10 + 1))
+        range_hi=$((target_idx * 10 + 9))
+        new_ws="$ws"
+        if (( ws < range_lo || ws > range_hi )); then
+            for cand in $(seq "$range_lo" "$range_hi"); do
+                if [[ -z "${USED[$cand]}" ]]; then
+                    new_ws=$cand
+                    USED[$cand]=1
+                    unset 'USED[$ws]'
+                    break
+                fi
+            done
+        fi
+
+        if [[ "$new_ws" != "$ws" ]]; then
+            i3-msg "rename workspace \"$ws\" to \"$new_ws\"" >/dev/null
+            ws=$new_ws
         fi
 
         if [[ "$current_output" != "$target" ]]; then
