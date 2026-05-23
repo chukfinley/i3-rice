@@ -18,7 +18,7 @@ regolith.look.path: /usr/share/regolith-look/nord
 wm.binding.exit_app: q
 
 ! Wallpaper
-regolith.wallpaper.file: /home/user/pic/wal/wallhaven-gw7o6e.jpg
+regolith.wallpaper.file: /home/user/pic/wal/wallhaven-8gkeej.jpg
 regolith.wallpaper.options: zoom
 
 ! Lock Screen - handled in i3 config.d/91_custom
@@ -27,13 +27,13 @@ regolith.wallpaper.options: zoom
 wm.binding.wifi: Shift+w
 
 ! Disable launchers (Super+Space, Super+Ctrl+Space, Super+Alt+Space, Super+Shift+Space)
-wm.binding.launcher.app: Shift+F12
-wm.binding.launcher.cmd: Shift+F12
+wm.binding.launcher.app: Shift+F10
+wm.binding.launcher.cmd: Shift+F11
 wm.binding.launcher.window: Shift+F12
-wm.binding.file_search: Shift+F12
+wm.binding.file_search: Ctrl+F10
 
 ! Disable Bluetooth shortcut (Super+B is used for bar toggle)
-wm.binding.bluetooth: Shift+F12
+wm.binding.bluetooth: Ctrl+F11
 
 ! Disable standard workspace keys (replaced by per-monitor script)
 wm.workspace.01.key: F13

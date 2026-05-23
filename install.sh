@@ -34,6 +34,10 @@ sudo apt install -y \
     xdotool \
     xclip \
     rofi \
+    conky-all \
+    playerctl \
+    imagemagick \
+    lm-sensors \
     flameshot \
     engrampa \
     caja-open-terminal \
@@ -55,7 +59,7 @@ echo "[2/5] Backing up existing configs..."
 mkdir -p "$BACKUP_DIR"
 
 # Backup existing configs
-for dir in regolith3 awesome qt5ct qt6ct alacritty environment.d autostart mpv yt-dlp xdg-desktop-portal; do
+for dir in regolith3 awesome qt5ct qt6ct alacritty environment.d autostart mpv yt-dlp xdg-desktop-portal conky; do
     if [[ -e "$HOME/.config/$dir" ]]; then
         echo "  Backing up ~/.config/$dir"
         cp -r "$HOME/.config/$dir" "$BACKUP_DIR/"
@@ -64,11 +68,6 @@ done
 
 if [[ -e "$HOME/.config/picom.conf" ]]; then
     cp "$HOME/.config/picom.conf" "$BACKUP_DIR/"
-fi
-
-if [[ -e "$HOME/.config/dwm/picom.conf" ]]; then
-    mkdir -p "$BACKUP_DIR/dwm"
-    cp "$HOME/.config/dwm/picom.conf" "$BACKUP_DIR/dwm/"
 fi
 
 if [[ -e "$HOME/.config/mimeapps.list" ]]; then
@@ -84,7 +83,7 @@ echo "[3/5] Creating symlinks..."
 mkdir -p "$HOME/.config"
 
 # Symlink config directories
-for dir in regolith3 awesome qt5ct qt6ct alacritty environment.d autostart mpv yt-dlp xdg-desktop-portal; do
+for dir in regolith3 awesome qt5ct qt6ct alacritty environment.d autostart mpv yt-dlp xdg-desktop-portal conky; do
     src="$SCRIPT_DIR/config/$dir"
     dst="$HOME/.config/$dir"
 
@@ -103,16 +102,17 @@ if [[ -d "$SCRIPT_DIR/config/regolith3/i3xrocks" ]]; then
     echo "  Linked: ~/.config/regolith3/i3xrocks"
 fi
 
-# Symlink picom.conf
-if [[ -f "$SCRIPT_DIR/picom.conf" ]]; then
-    mkdir -p "$HOME/.config/dwm"
-    rm -f "$HOME/.config/dwm/picom.conf"
-    ln -sf "$SCRIPT_DIR/picom.conf" "$HOME/.config/dwm/picom.conf"
-    echo "  Linked: ~/.config/dwm/picom.conf"
-
+# Symlink picom.conf (single canonical location: ~/.config/picom.conf)
+if [[ -f "$SCRIPT_DIR/config/picom/picom.conf" ]]; then
     rm -f "$HOME/.config/picom.conf"
-    ln -sf "$SCRIPT_DIR/picom.conf" "$HOME/.config/picom.conf"
+    ln -sf "$SCRIPT_DIR/config/picom/picom.conf" "$HOME/.config/picom.conf"
     echo "  Linked: ~/.config/picom.conf"
+
+    # Remove legacy DWM-era symlink if present
+    if [[ -L "$HOME/.config/dwm/picom.conf" ]]; then
+        rm -f "$HOME/.config/dwm/picom.conf"
+        echo "  Removed legacy: ~/.config/dwm/picom.conf"
+    fi
 fi
 
 # Symlink mimeapps.list (for default applications like Flatpak MPV)
@@ -143,8 +143,12 @@ if ! command -v greenclip &>/dev/null; then
     echo "  Installed: ~/.local/bin/greenclip"
 fi
 
+# Make conky scripts executable
+chmod +x "$HOME/.config/conky/"*.sh 2>/dev/null || true
+
 # Update scripts with correct home path
 sed -i "s|/home/user|$HOME|g" "$HOME/.local/bin/"* 2>/dev/null || true
+sed -i "s|/home/user|$HOME|g" "$HOME/.config/conky/"*.sh 2>/dev/null || true
 
 # Install custom .desktop files (e.g., caja without OnlyShowIn=MATE)
 if [[ -d "$SCRIPT_DIR/config/applications" ]]; then

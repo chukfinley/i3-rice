@@ -23,6 +23,11 @@ This is an i3/Regolith-based Linux desktop configuration with per-monitor worksp
 - **config/autostart/** - Autostart entries
   - `picom.desktop` - Starts picom with `~/.config/dwm/picom.conf`
   - `flameshot.desktop` - Starts Flameshot in the tray
+  - `conky.desktop` - Starts Conky system monitor
+
+- **config/conky/** - Conky system monitor config
+  - `conky.conf` - Main config with Spotify integration and system stats
+  - `spotify-*.sh` - Helper scripts for Spotify cover art and track info
 
 - **config/applications/** - Custom .desktop files for launchers (rofi, vicinae)
   - `caja.desktop` - Caja without `OnlyShowIn=MATE` (system version is hidden in non-MATE desktops)
@@ -33,12 +38,16 @@ This is an i3/Regolith-based Linux desktop configuration with per-monitor worksp
 
 ### PICOM Configuration
 
-PICOM uses `~/.config/dwm/picom.conf`, symlinked from this repo's `picom.conf` by `install.sh`.
+Source of truth: `config/picom/picom.conf` in this repo. `install.sh` symlinks it to `~/.config/picom.conf` (single canonical local path — the legacy `~/.config/dwm/picom.conf` from the DWM era is no longer used and is removed by `install.sh` if found).
+
+**Backend**: `xrender`. **Do not switch to `glx` on this machine** — it produces a black screen (driver/GL incompatibility). Trade-off: windows that rely on shape/alpha for rounded corners (vicinae) render as rectangles. Live with it.
 
 **Important**: After `regolith-look refresh`, picom keeps running but stops working. Always:
 ```bash
-pkill -9 picom; sleep 0.5; picom -b --config ~/.config/dwm/picom.conf
+pkill -9 picom; sleep 0.5; picom -b --config ~/.config/picom.conf
 ```
+
+Or run `~/.local/bin/picom-restart` (symlink to `scripts/picom-restart`).
 
 The monitors have different refresh rates - do NOT set `refresh-rate` in picom.conf (let it auto-detect).
 
@@ -102,6 +111,11 @@ xrdb -merge ~/.config/regolith3/Xresources && i3-msg restart
 
 # Try AwesomeWM from current X11 session
 awesome --replace
+
+# Conky commands
+killall conky; conky -c ~/.config/conky/conky.conf
+# Or restart with autostart delay simulation:
+conky -c ~/.config/conky/conky.conf &
 ```
 
 ## Custom Keybindings
@@ -125,6 +139,20 @@ When editing configs:
 - **Xresources changes**: Run `xrdb -merge ~/.config/regolith3/Xresources && i3-msg restart`, then restart picom
 - **91_custom changes**: Run `i3-msg reload` to apply
 - **Script changes**: Changes take effect immediately (scripts run fresh each time)
+
+### Which i3 config is actually loaded
+
+Regolith does NOT load `~/.config/i3/config`. Edits there are ignored.
+
+The active config chain (verified via `i3-msg -t get_version`):
+
+- Top-level: `/etc/regolith/i3/config`
+- Includes from `/usr/share/regolith/common/config.d/` and `/usr/share/regolith/i3/config.d/`
+- User overrides: `config/regolith3/i3/config.d/91_custom` (this repo, symlinked to `~/.config/regolith3/i3/config.d/91_custom`)
+
+For any custom `for_window`, `bindsym`, `exec`, etc. → put it in **`91_custom`**, not in `~/.config/i3/config`.
+
+`for_window` rules only fire on newly mapped windows. After adding a rule and `i3-msg reload`, close and reopen the target window. To apply to an already-open window: `i3-msg '[class="..."] border none'`.
 
 ## Paths Used
 

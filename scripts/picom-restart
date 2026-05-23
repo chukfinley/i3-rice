@@ -5,7 +5,4 @@
 
 pkill -9 picom 2>/dev/null
 sleep 0.5
-picom -b --config ~/.config/dwm/picom.conf
-
-# Set wallpaper (feh gets reset on i3 restart)
-feh --bg-fill /home/user/pic/wal/wallhaven-8gkeej.jpg
+picom -b --config ~/.config/picom.conf

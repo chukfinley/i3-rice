@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Conky System Monitor
+Comment=Desktop system monitor with Spotify integration
+Exec=sh -c "sleep 3 && conky -c ~/.config/conky/conky.conf"
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true

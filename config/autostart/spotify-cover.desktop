@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Spotify Cover Daemon
+Comment=Updates Spotify cover art for Conky
+Exec=~/.config/conky/spotify-cover-daemon.sh
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true

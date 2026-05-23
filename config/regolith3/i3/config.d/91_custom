@@ -42,6 +42,13 @@ bindsym $mod+r exec --no-startup-id /home/user/.local/bin/fluistern
 # Super+Shift+D for Vicinae
 bindsym $mod+Shift+d exec --no-startup-id /home/user/.local/bin/vicinae open
 
+# Vicinae: no border
+for_window [class="vicinae"] border none
+
+# Super+O for screen region OCR (PaddleOCR → clipboard)
+# --release so the modifier is released before scrot tries to grab pointer
+bindsym --release $mod+o exec --no-startup-id /home/user/git/linux-ocr/capture.sh
+
 # Workspace-Switching per Monitor (Super+1-9)
 bindsym $mod+1 exec --no-startup-id /home/user/.local/bin/i3-workspace-per-monitor switch 1
 bindsym $mod+2 exec --no-startup-id /home/user/.local/bin/i3-workspace-per-monitor switch 2
