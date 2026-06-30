@@ -8,7 +8,8 @@ WS_NUM="$2"
 # Get mouse position
 eval "$(xdotool getmouselocation --shell)"
 
-# Get all active outputs with eDP always first, then find which output the mouse is on
+# Order outputs by physical position (top row left->right, then lower rows) and
+# find which output the mouse is on. Must match i3-assign-workspaces ordering.
 OFFSET=0
 i=0
 while IFS= read -r line; do
@@ -22,9 +23,7 @@ while IFS= read -r line; do
         break
     fi
     ((i++))
-done < <(i3-msg -t get_outputs | jq -r '.[] | select(.active) | "\(.name) \(.rect.x) \(.rect.y) \(.rect.width) \(.rect.height)"' | awk '{
-    if ($1 ~ /^eDP/) print "0 " $0; else print "1 " $0
-}' | sort -n -k1 | cut -d' ' -f2-)
+done < <(i3-msg -t get_outputs | jq -r '.[] | select(.active) | "\(.rect.y) \(.rect.x) \(.name) \(.rect.x) \(.rect.y) \(.rect.width) \(.rect.height)"' | sort -n -k1 -k2 | cut -d' ' -f3-)
 
 REAL_WS=$((OFFSET + WS_NUM))
 

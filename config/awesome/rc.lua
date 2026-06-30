@@ -351,7 +351,7 @@ local globalkeys = gears.table.join(
     end, {description = "open tailscale menu", group = "launcher"}),
 
     awful.key({modkey}, "r", function()
-        awful.spawn.with_shell(home .. "/.local/bin/fluistern")
+        awful.spawn.with_shell(home .. "/.local/bin/plauder")
     end, {description = "voice input", group = "launcher"}),
 
     awful.key({modkey}, "space", function()

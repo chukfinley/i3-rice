@@ -20,10 +20,9 @@ This is an i3/Regolith-based Linux desktop configuration with per-monitor worksp
 
 - **config/environment.d/qt-theme.conf** - Sets `QT_QPA_PLATFORMTHEME=qt5ct`
 
-- **config/autostart/** - Autostart entries
-  - `picom.desktop` - Starts picom with `~/.config/dwm/picom.conf`
-  - `flameshot.desktop` - Starts Flameshot in the tray
-  - `conky.desktop` - Starts Conky system monitor
+- **config/autostart/** - XDG autostart entries (flameshot, conky, spotify-cover, etc.)
+  - picom is NOT started here — it runs via `exec_always ~/.local/bin/picom-restart` in `91_custom`
+  - monitor layout is NOT started here — `91_custom` runs `dock-layout.sh --force` at login
 
 - **config/conky/** - Conky system monitor config
   - `conky.conf` - Main config with Spotify integration and system stats
@@ -61,11 +60,24 @@ The standard i3 workspace keys (Super+1-9) are disabled in Xresources (mapped to
 Custom bindings in `91_custom` call the `i3-workspace-per-monitor` script which:
 
 1. Gets the focused output from `i3-msg -t get_workspaces`
-2. Maps output to workspace offset:
-   - eDP-1 (laptop): offset 0 (workspaces 1-9)
-   - DP-3-1: offset 10 (workspaces 11-19)
-   - DP-3-2: offset 20 (workspaces 21-29)
+2. Maps output to workspace offset by **physical position** — outputs are
+   ordered top row left→right, then lower rows (sort by `rect.y` then `rect.x`).
+   The Nth output in that order gets offset `N*10`. No special-casing of eDP.
+   For the standard docked layout (DP-3-1 top-left, DP-3-2 top-right, eDP-1
+   bottom):
+   - DP-3-1 (left): offset 0 (workspaces 1-9)
+   - DP-3-2 (right): offset 10 (workspaces 11-19)
+   - eDP-1 (laptop, bottom): offset 20 (workspaces 21-29)
+   This adapts automatically to any monitor combination: with the lid closed
+   (externals only) the two externals get 1-9 and 11-19; with only the laptop,
+   eDP-1 is the sole output and gets 1-9.
 3. Switches/moves to the calculated workspace
+
+Both `i3-workspace-per-monitor` and `i3-assign-workspaces` use the **same**
+position-based ordering, so per-monitor shortcuts and the output assignment
+always agree. `i3-monitor-daemon` watches `RRScreenChangeNotify` and re-runs
+`i3-assign-workspaces` on any display change (orphaned workspaces from a removed
+output are reparented and renumbered into a surviving output's range).
 
 ### Monitor Layout (Docked)
 
@@ -90,14 +102,14 @@ Run `dock-layout.sh` to apply this layout.
 
 # Refresh after editing Xresources (then restart picom!)
 regolith-look refresh
-pkill -9 picom; picom -b --config ~/.config/dwm/picom.conf
+pkill -9 picom; picom -b --config ~/.config/picom.conf
 
 # Reload i3 config
 i3-msg reload
 
 # Restart i3 (preserves layout) - also needs picom restart
 i3-msg restart
-pkill -9 picom; picom -b --config ~/.config/dwm/picom.conf
+pkill -9 picom; picom -b --config ~/.config/picom.conf
 
 # Apply Xresources changes
 xrdb -merge ~/.config/regolith3/Xresources && i3-msg restart
@@ -159,7 +171,7 @@ For any custom `for_window`, `bindsym`, `exec`, etc. → put it in **`91_custom`
 - Configs symlinked to: `~/.config/{regolith3,qt5ct,qt6ct,alacritty,...}`
 - Scripts installed to: `~/.local/bin/`
 - Wallpapers: `~/pic/wal/`
-- PICOM config: `~/.config/dwm/picom.conf`
+- PICOM config: `~/.config/picom.conf`
 - Backup location: `~/.config-backup-YYYYMMDD-HHMMSS/`
 
 ## i3xrocks Bar Blocks

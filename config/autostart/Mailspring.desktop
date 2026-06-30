@@ -10,6 +10,7 @@ Keywords=email;internet;
 MimeType=x-scheme-handler/mailto;x-scheme-handler/mailspring;
 Actions=NewMessage
 X-GNOME-UsesNotifications=true
+X-GNOME-Autostart-enabled=false
 
 [Desktop Action NewMessage]
 Name=New Message

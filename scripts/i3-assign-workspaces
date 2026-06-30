@@ -5,10 +5,11 @@
 
 CONFIG="$HOME/.config/regolith3/i3/config.d/90_workspace_outputs"
 
-# Get active outputs with eDP-1 (laptop) always first, then others by position
-mapfile -t OUTPUTS < <(i3-msg -t get_outputs | jq -r '.[] | select(.active) | "\(.rect.x) \(.rect.y) \(.name)"' | awk '{
-    if ($3 ~ /^eDP/) print "0 0 " $3; else print "1 " $1 " " $2 " " $3
-}' | sort -n -k1 -k2 -k3 | awk '{print $NF}')
+# Get active outputs ordered by physical position: top row left->right, then
+# lower rows. The laptop (eDP-1, bottom) naturally lands last when externals
+# are present, and is the only output (offset 0) when used alone. Works for
+# any monitor combination — no special-casing eDP.
+mapfile -t OUTPUTS < <(i3-msg -t get_outputs | jq -r '.[] | select(.active) | "\(.rect.y) \(.rect.x) \(.name)"' | sort -n -k1 -k2 | awk '{print $NF}')
 
 NUM_OUTPUTS=${#OUTPUTS[@]}
 LAST_OUTPUT="${OUTPUTS[$((NUM_OUTPUTS - 1))]}"
@@ -57,6 +58,9 @@ for ws_info in $(i3-msg -t get_workspaces | jq -r '.[] | "\(.name):\(.output)"')
 
         if [[ "$new_ws" != "$ws" ]]; then
             i3-msg "rename workspace \"$ws\" to \"$new_ws\"" >/dev/null
+            # Keep focus tracking in sync, else the restore below would
+            # recreate the old (now-empty) workspace number.
+            [[ "$FOCUSED" == "$ws" ]] && FOCUSED="$new_ws"
             ws=$new_ws
         fi
 

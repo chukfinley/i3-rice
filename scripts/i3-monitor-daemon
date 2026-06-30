@@ -1,48 +1,35 @@
 #!/bin/bash
-# Monitor daemon that detects display changes and reassigns workspaces
-# Uses xev to listen for RandR events with proper debouncing.
+# Monitor daemon — a TRIGGER, not a layout brain.
 #
-# Only one instance should run at a time (enforced by pidfile).
+# Listens for X RandR screen-change events and calls dock-layout.sh, which is
+# the single source of truth for layout + workspace assignment. dock-layout.sh
+# is idempotent, so firing on every event is harmless (no-op when the layout is
+# already correct). The hardware-level trigger lives in udev; this daemon only
+# covers X-side changes (e.g. `regolith-look refresh`) and acts as a backup.
+#
+# Self-healing: if xev dies (X restart, broken pipe during MST enumeration) the
+# outer loop restarts it instead of letting the daemon die silently.
+#
+# Single instance enforced via pidfile.
 
 PIDFILE="/tmp/i3-monitor-daemon.pid"
-DEBOUNCE_SECS=3
+DEBOUNCE_SECS=2
 
-# --- Single-instance guard ---
-if [[ -f "$PIDFILE" ]]; then
-    OLD_PID=$(cat "$PIDFILE")
-    if kill -0 "$OLD_PID" 2>/dev/null; then
-        # Another instance is already running — exit silently
-        exit 0
-    fi
+if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE" 2>/dev/null)" 2>/dev/null; then
+    exit 0  # already running
 fi
 echo $$ > "$PIDFILE"
 trap 'rm -f "$PIDFILE"' EXIT
 
-# Track current output state (only "connected" lines — what's physically plugged)
-get_state() {
-    xrandr --query | grep ' connected' | awk '{print $1}' | sort
-}
-
-LAST_STATE=$(get_state)
-
-# Listen for RandR screen change events.
-# We debounce by draining all events that arrive within DEBOUNCE_SECS of
-# the first one, then acting once on the final stable state.
-xev -root -event randr 2>/dev/null | while read -r line; do
-    if echo "$line" | grep -q "RRScreenChangeNotify"; then
-        # An event arrived. Wait for the dust to settle: keep resetting a
-        # timer as long as new events keep arriving within the window.
-        while read -t "$DEBOUNCE_SECS" -r next_line; do
-            # drain — just keep waiting until no event for DEBOUNCE_SECS
-            :
-        done
-
-        NEW_STATE=$(get_state)
-        if [[ "$NEW_STATE" != "$LAST_STATE" ]]; then
-            LAST_STATE="$NEW_STATE"
-            # Apply correct on/off layout (dock = externals only, undock = eDP-1 only)
+while true; do
+    xev -root -event randr 2>/dev/null | while read -r line; do
+        if [[ "$line" == *RRScreenChangeNotify* ]]; then
+            # Debounce: drain events until the bus is quiet for DEBOUNCE_SECS,
+            # then act once on the settled state.
+            while read -t "$DEBOUNCE_SECS" -r _; do :; done
             ~/.local/bin/dock-layout.sh
-            ~/.local/bin/i3-assign-workspaces
         fi
-    fi
+    done
+    # xev exited — X gone or pipe broke. Wait, then respawn so we self-heal.
+    sleep 2
 done

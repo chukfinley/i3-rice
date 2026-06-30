@@ -6,10 +6,12 @@ focus_follows_mouse yes
 floating_modifier $mod
 tiling_drag modifier
 
-# Dynamically assign workspaces to monitors on startup and monitor changes.
-# i3-assign-workspaces runs once at startup; the daemon watches for changes.
-# The daemon has a pidfile guard so duplicates from i3 restart are harmless.
-exec --no-startup-id ~/.local/bin/i3-assign-workspaces
+# Set monitor geometry + assign workspaces on every i3 start/reload.
+# dock-layout.sh is idempotent and calls i3-assign-workspaces itself at the end,
+# so geometry is fixed BEFORE workspaces are assigned (otherwise assignment runs
+# against X's default layout and strands workspaces on the wrong outputs at boot).
+# The daemon watches for later runtime monitor changes (pidfile-guarded).
+exec_always --no-startup-id ~/.local/bin/dock-layout.sh --force
 exec_always --no-startup-id ~/.local/bin/i3-monitor-daemon
 
 # Picom: kill and restart on every i3 restart (picom breaks but stays alive)
@@ -36,8 +38,8 @@ bindsym $mod+Shift+space floating toggle
 # Super+Shift+V for Tailscale/VPN menu
 bindsym $mod+Shift+v exec --no-startup-id ~/.local/bin/tailscale-menu
 
-# Super+R for Fluistern (Voice Input)
-bindsym $mod+r exec --no-startup-id /home/user/.local/bin/fluistern
+# Super+R for Plauder (Voice Input)
+bindsym $mod+r exec --no-startup-id /home/user/.local/bin/plauder
 
 # Super+Shift+D for Vicinae
 bindsym $mod+Shift+d exec --no-startup-id /home/user/.local/bin/vicinae open

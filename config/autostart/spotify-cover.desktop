@@ -5,4 +5,4 @@ Comment=Updates Spotify cover art for Conky
 Exec=~/.config/conky/spotify-cover-daemon.sh
 Hidden=false
 NoDisplay=false
-X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-enabled=false
