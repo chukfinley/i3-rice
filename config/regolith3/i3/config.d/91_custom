@@ -17,12 +17,22 @@ exec_always --no-startup-id ~/.local/bin/i3-monitor-daemon
 # Picom: kill and restart on every i3 restart (picom breaks but stays alive)
 exec_always --no-startup-id ~/.local/bin/picom-restart
 
+# Reiche die volle Session-Env an D-Bus + systemd-user weiter, damit
+# D-Bus-aktivierte Apps (Caja via org.freedesktop.FileManager1, gvfs/Papierkorb)
+# von Flatpaks (Zen, JDownloader) korrektes Theme + funktionierende Umgebung kriegen.
+exec_always --no-startup-id dbus-update-activation-environment --systemd --all
+
 # Autostart
 exec --no-startup-id /usr/bin/dunst
 exec --no-startup-id /usr/bin/signal-desktop --start-in-tray
 exec --no-startup-id redshift
 exec --no-startup-id greenclip daemon
 exec --no-startup-id vicinae server
+
+# skippy-xd: Exposé/Preview-Daemon (Mission-Control-Style Fenster-Übersicht)
+exec --no-startup-id skippy-xd --start-daemon
+# tint2: Taskbar unten (zeigt alle offenen Fenster). Nur starten wenn installiert.
+exec --no-startup-id sh -c 'command -v tint2 >/dev/null && tint2'
 
 # Custom Keybindings
 
@@ -34,6 +44,10 @@ bindsym --release $mod+w exec slock
 
 # Super+Shift+Space to toggle floating mode
 bindsym $mod+Shift+space floating toggle
+
+# --- Fenster-Übersicht (skippy-xd) ---
+# Super+E: Exposé ALLER Fenster über ALLE Workspaces (Preview-Raster, "wo ist was")
+bindsym $mod+e exec --no-startup-id skippy-xd --expose --desktop -1 --toggle
 
 # Super+Shift+V for Tailscale/VPN menu
 bindsym $mod+Shift+v exec --no-startup-id ~/.local/bin/tailscale-menu
