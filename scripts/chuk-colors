@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# chuk-colors — minimal pywal replacement.
+# Extracts a 16-colour palette from a wallpaper using ImageMagick `convert`
+# and writes it (one #rrggbb per line) to ~/.cache/chuk/colors.txt.
+# Role assignment (bg/fg/accents) happens in Lua (colors.lua), not here.
+set -euo pipefail
+
+CACHE="$HOME/.cache/chuk"
+mkdir -p "$CACHE"
+
+WALL="${1:-}"
+# No explicit wallpaper? Use feh's source of truth (~/.fehbg), else the cache.
+if [ -z "$WALL" ] && [ -f "$HOME/.fehbg" ]; then
+	WALL="$(grep -oE "/[^']+\.(jpg|jpeg|png|JPG|JPEG|PNG)" "$HOME/.fehbg" | head -1)"
+fi
+if [ -z "$WALL" ]; then
+	WALL="$(cat "$CACHE/wallpaper" 2>/dev/null || true)"
+fi
+if [ -z "$WALL" ] || [ ! -f "$WALL" ]; then
+	echo "chuk-colors: no wallpaper given and none found (~/.fehbg / cache)" >&2
+	exit 1
+fi
+echo "$WALL" > "$CACHE/wallpaper"
+
+# Downscale, quantise to 16 representative colours, emit hex.
+convert "$WALL" -resize 20% +dither -colors 16 -unique-colors -depth 8 txt:- \
+	| grep -oiE '#[0-9A-F]{6}' \
+	| head -16 > "$CACHE/colors.txt"
+
+n=$(wc -l < "$CACHE/colors.txt")
+echo "chuk-colors: wrote $n colours from $(basename "$WALL") -> $CACHE/colors.txt"

@@ -40,21 +40,25 @@ local home = os.getenv("HOME") or "/home/user"
 local terminal = "alacritty"
 local modkey = "Mod4"
 
+-- Wallpaper-derived colours (our own pywal replacement).
+-- Falls back to a fixed dark theme if ~/.cache/chuk/colors.txt is missing.
+local colors = dofile(home .. "/.config/awesome/colors.lua")
+
 beautiful.init({
     font = "RobotoMono Nerd Font Bold 13",
-    bg_normal = "#0f1114",
-    bg_focus = "#2a2f38",
-    bg_urgent = "#c15c5c",
-    bg_minimize = "#1a1e25",
-    fg_normal = "#d1d5db",
-    fg_focus = "#f5f5f5",
-    fg_urgent = "#ffffff",
-    fg_minimize = "#9aa1ac",
+    bg_normal = colors.bg_normal,
+    bg_focus = colors.bg_focus,
+    bg_urgent = colors.bg_urgent,
+    bg_minimize = colors.bg_minimize,
+    fg_normal = colors.fg_normal,
+    fg_focus = colors.fg_focus,
+    fg_urgent = colors.fg_urgent,
+    fg_minimize = colors.fg_minimize,
     useless_gap = 6,
     border_width = 2,
-    border_normal = "#111418",
-    border_focus = "#7d8796",
-    border_marked = "#c15c5c",
+    border_normal = colors.border_normal,
+    border_focus = colors.border_focus,
+    border_marked = colors.border_marked,
     menu_height = 28,
     menu_width = 260,
 })
@@ -206,7 +210,104 @@ local clock_widget = wibox.widget.textclock(
     30
 )
 
+-- VPN (Tailscale) status button: green when up, red when down. Click = menu.
+local vpn_widget = wibox.widget({
+    align = "center",
+    valign = "center",
+    widget = wibox.widget.textbox,
+    markup = "<span color='#7b8394'>VPN</span>",
+})
+
+local function vpn_update()
+    awful.spawn.easy_async_with_shell(
+        "tailscale status >/dev/null 2>&1 && echo up || echo down",
+        function(out)
+            if out:match("up") then
+                vpn_widget.markup = "<span color='" .. colors.accent .. "'> VPN</span>"
+            else
+                vpn_widget.markup = "<span color='#c15c5c'> VPN</span>"
+            end
+        end
+    )
+end
+
+vpn_widget:buttons(gears.table.join(
+    awful.button({}, 1, function()
+        awful.spawn.with_shell(home .. "/.local/bin/tailscale-menu")
+        gears.timer.start_new(1.5, function() vpn_update(); return false end)
+    end)
+))
+
+gears.timer({timeout = 10, autostart = true, call_now = true, callback = vpn_update})
+
+-- Wallpaper: keep the shown image in sync with the palette colours were
+-- derived from (~/.cache/chuk/wallpaper, written by chuk-colors).
+local wall_dir = home .. "/pic/wal"
+
+-- feh's ~/.fehbg is the single source of truth for the wallpaper path.
+local function current_wallpaper()
+    local f = io.open(home .. "/.fehbg", "r")
+    if f then
+        local body = f:read("*a")
+        f:close()
+        local w = body and body:match("'([^']+%.[jJpPgGeEnN]+)'")
+        if w and gears.filesystem.file_readable(w) then
+            return w
+        end
+    end
+    -- fallback: whatever chuk-colors last cached
+    local c = io.open(home .. "/.cache/chuk/wallpaper", "r")
+    if c then
+        local w = c:read("*l")
+        c:close()
+        if w and gears.filesystem.file_readable(w) then
+            return w
+        end
+    end
+    return nil
+end
+
+local function set_wallpaper(s)
+    local w = current_wallpaper()
+    if w then
+        gears.wallpaper.maximized(w, s, false)
+    end
+end
+
+-- Watch ~/.fehbg: when you change the wallpaper via feh, regenerate the
+-- palette and reload so the whole theme follows the new wallpaper.
+do
+    local fehbg = home .. "/.fehbg"
+    local last_mtime = nil
+    gears.timer({
+        timeout = 3,
+        autostart = true,
+        callback = function()
+            -- cheap mtime check via `stat`
+            awful.spawn.easy_async_with_shell(
+                "stat -c %Y " .. fehbg .. " 2>/dev/null",
+                function(out)
+                    local m = tonumber(out)
+                    if not m then return end
+                    if last_mtime == nil then
+                        last_mtime = m
+                        return
+                    end
+                    if m ~= last_mtime then
+                        last_mtime = m
+                        awful.spawn.easy_async(
+                            home .. "/.local/bin/chuk-colors",
+                            function() awesome.restart() end
+                        )
+                    end
+                end
+            )
+        end,
+    })
+end
+
 awful.screen.connect_for_each_screen(function(s)
+    set_wallpaper(s)
     awful.tag({"1", "2", "3", "4", "5", "6", "7", "8", "9"}, s, awful.layout.layouts[1])
 
     s.promptbox = awful.widget.prompt()
@@ -242,8 +343,8 @@ awful.screen.connect_for_each_screen(function(s)
         position = "top",
         screen = s,
         height = 32,
-        bg = "#000000cc",
-        fg = "#d1d5db",
+        bg = colors.bg_normal .. "dd",
+        fg = colors.fg_normal,
     })
 
     local right_widgets = {
@@ -255,6 +356,7 @@ awful.screen.connect_for_each_screen(function(s)
         table.insert(right_widgets, wibox.widget.systray())
     end
 
+    table.insert(right_widgets, vpn_widget)
     table.insert(right_widgets, microphone_widget)
     table.insert(right_widgets, battery_widget)
     table.insert(right_widgets, memory_widget)
@@ -318,8 +420,8 @@ local globalkeys = gears.table.join(
     end, {description = "open terminal", group = "launcher"}),
 
     awful.key({modkey, "Shift"}, "d", function()
-        main_menu:toggle()
-    end, {description = "open dropdown menu", group = "launcher"}),
+        awful.spawn.with_shell(home .. "/.local/bin/vicinae open")
+    end, {description = "vicinae launcher", group = "launcher"}),
 
     awful.key({modkey}, "w", function()
         awful.spawn.with_shell(home .. "/.local/bin/i3-lock-wrapper")
@@ -353,6 +455,14 @@ local globalkeys = gears.table.join(
     awful.key({modkey}, "r", function()
         awful.spawn.with_shell(home .. "/.local/bin/plauder")
     end, {description = "voice input", group = "launcher"}),
+
+    awful.key({modkey}, "e", function()
+        awful.spawn.with_shell("skippy-xd --expose --desktop -1 --toggle")
+    end, {description = "window expose (skippy)", group = "launcher"}),
+
+    awful.key({modkey}, "o", function()
+        awful.spawn.with_shell(home .. "/git/linux-ocr/capture.sh")
+    end, {description = "screen region OCR", group = "launcher"}),
 
     awful.key({modkey}, "space", function()
         awful.layout.inc(1)
@@ -478,6 +588,24 @@ awful.rules.rules = {
         },
         properties = {floating = true},
     },
+
+    -- Browser (Zen) always on tag 1
+    {
+        rule = {class = "zen"},
+        properties = {tag = "1"},
+    },
+
+    -- Spotify always on tag 9
+    {
+        rule_any = {class = {"Spotify", "spotify"}},
+        properties = {tag = "9"},
+    },
+
+    -- Signal autostarts minimized (to tray)
+    {
+        rule = {class = "Signal"},
+        properties = {minimized = true},
+    },
 }
 
 client.connect_signal("manage", function(c)
@@ -523,10 +651,11 @@ client.connect_signal("unfocus", function(c)
     c.border_color = beautiful.border_normal
 end)
 
-run_once("picom -b --config " .. home .. "/.config/dwm/picom.conf")
+awful.spawn.with_shell(home .. "/.local/bin/picom-restart")
 run_once("flameshot")
 run_once("dunst")
 run_once("signal-desktop --start-in-tray")
 run_once("redshift")
-run_once("greenclip daemon")
 run_once("vicinae server")
+run_once("skippy-xd --start-daemon")
+-- dropped: conky (unused), greenclip (557MB RAM leak; vicinae clipboard instead)
