@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-This is an i3/Regolith-based Linux desktop configuration with per-monitor workspace management, plus an optional AwesomeWM profile.
+This is an i3/Regolith-based Linux desktop configuration with per-monitor workspace management.
 
 ### Key Components
 
@@ -12,8 +12,6 @@ This is an i3/Regolith-based Linux desktop configuration with per-monitor worksp
   - `Xresources` - Main config (terminal, keybindings, workspace names, look)
   - `i3/config.d/91_custom` - i3 config additions (workspace assignments, keybindings)
   - `flags/` - Regolith feature flags
-
-- **config/awesome/rc.lua** - AwesomeWM config with i3-like shortcuts and dropdown menu bar
 
 - **config/qt5ct/, qt6ct/** - Qt theme configs for consistent dark theme on Qt apps (Flameshot, etc.)
   - Use `standard_dialogs=default` (not gtk3) to avoid text visibility issues in Flameshot menus
@@ -120,9 +118,6 @@ xrdb -merge ~/.config/regolith3/Xresources && i3-msg restart
 
 # Apply monitor layout
 ~/.local/bin/dock-layout.sh
-
-# Try AwesomeWM from current X11 session
-awesome --replace
 
 # Conky commands
 killall conky; conky -c ~/.config/conky/conky.conf

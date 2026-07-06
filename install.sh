@@ -23,7 +23,6 @@ echo "[1/5] Installing dependencies..."
 sudo apt update
 sudo apt install -y \
     i3-wm \
-    awesome \
     alacritty \
     qt5ct \
     qt6ct \
@@ -59,7 +58,7 @@ echo "[2/5] Backing up existing configs..."
 mkdir -p "$BACKUP_DIR"
 
 # Backup existing configs
-for dir in regolith3 awesome qt5ct qt6ct alacritty environment.d autostart mpv yt-dlp xdg-desktop-portal conky; do
+for dir in regolith3 qt5ct qt6ct alacritty environment.d autostart mpv yt-dlp xdg-desktop-portal conky; do
     if [[ -e "$HOME/.config/$dir" ]]; then
         echo "  Backing up ~/.config/$dir"
         cp -r "$HOME/.config/$dir" "$BACKUP_DIR/"
@@ -83,7 +82,7 @@ echo "[3/5] Creating symlinks..."
 mkdir -p "$HOME/.config"
 
 # Symlink config directories
-for dir in regolith3 awesome qt5ct qt6ct alacritty environment.d autostart mpv yt-dlp xdg-desktop-portal conky; do
+for dir in regolith3 qt5ct qt6ct alacritty environment.d autostart mpv yt-dlp xdg-desktop-portal conky; do
     src="$SCRIPT_DIR/config/$dir"
     dst="$HOME/.config/$dir"
 
