@@ -61,6 +61,18 @@ bindsym $mod+Shift+d exec --no-startup-id /home/user/.local/bin/vicinae open
 # Vicinae: no border
 for_window [class="vicinae"] border none
 
+# --- Wispr Flow (Electron Voice-Dictation, Linux-Port) ---
+# Seit dem linux-hub-focusable-Patch ist das Hub-Fenster WM-managed und kachelt
+# normal — daher KEIN Catch-all-Float mehr. Nur die Overlays (Status-Pill,
+# Scratchpad, Context Menu) floaten: sticky (folgen über Workspaces) + no_focus,
+# damit die Pill beim Diktieren nicht den Tastatur-Fokus aus dem Editor klaut.
+for_window [class="wispr-flow" title="Status"] floating enable, sticky enable, border none
+for_window [class="wispr-flow" title="Scratchpad"] floating enable, sticky enable, border none
+for_window [class="wispr-flow" title="Context Menu"] floating enable, border none
+no_focus [class="wispr-flow" title="Status"]
+no_focus [class="wispr-flow" title="Scratchpad"]
+no_focus [class="wispr-flow" title="Context Menu"]
+
 # Super+O for screen region OCR (PaddleOCR → clipboard)
 # --release so the modifier is released before scrot tries to grab pointer
 bindsym --release $mod+o exec --no-startup-id /home/user/git/linux-ocr/capture.sh
