@@ -15,9 +15,10 @@
 #   then finds the layout already correct -> no-op -> the loop dies.
 #
 # Lid-aware, supports all three setups:
-#   externals + lid OPEN   -> all monitors (externals top row, laptop centered below)
-#   externals + lid CLOSED -> externals only
-#   no externals           -> laptop only
+#   externals + lid OPEN   -> externals side by side (top row), laptop bottom-left
+#                             below the leftmost external.
+#   externals + lid CLOSED -> externals stacked vertically (first on top, next below).
+#   no externals           -> laptop only.
 
 [[ -z "$HOME" ]] && export HOME=/home/user
 export DISPLAY="${DISPLAY:-:0}"
@@ -33,6 +34,11 @@ LOCK="/tmp/dock-layout.lock"
 # this WITHOUT --force (idempotent) to avoid a self-retriggering flicker loop.
 FORCE=0
 [[ "$1" == "--force" || "$1" == "-f" ]] && FORCE=1
+
+# Manual override: while this file exists the user has hand-set a layout
+# (e.g. single-screen 3:2 for remote access) and we must not fight it.
+# Created/removed by ~/.local/bin/single32 / single32-revert.
+[[ -e "$HOME/.cache/dock-layout.disabled" ]] && exit 0
 
 # Serialize concurrent invocations (udev + daemon may fire together).
 # -n: if another run holds the lock, skip — it will converge to the same state.
@@ -101,24 +107,41 @@ place_row() {
     done
 }
 
+# Stack EXT top->bottom at x=0. Sets COL_W (max width) and COL_H (total height).
+place_col() {
+    COL_W=0; COL_H=0
+    local prev=""
+    for o in "${EXT[@]}"; do
+        local m w h; m=$(pref_mode "$o"); [[ -z "$m" ]] && m="1920x1080"
+        w=${m%x*}; h=${m#*x}
+        ON[$o]="${w}x${h}+0+${COL_H}"
+        if [[ -z "$prev" ]]; then
+            ARGS+=(--output "$o" --mode "$m" --pos "0x${COL_H}" --primary)
+        else
+            ARGS+=(--output "$o" --mode "$m" --pos "0x${COL_H}")
+        fi
+        COL_H=$((COL_H + h)); (( w > COL_W )) && COL_W=$w
+        prev="$o"
+    done
+}
+
 if (( ${#EXT[@]} == 0 )); then
     # Laptop only
     lm=$(pref_mode "$LAPTOP"); [[ -z "$lm" ]] && lm="1920x1080"
     ON[$LAPTOP]="${lm%x*}x${lm#*x}+0+0"
     ARGS+=(--output "$LAPTOP" --mode "$lm" --pos 0x0 --primary)
 elif lid_closed; then
-    # Externals only (lid shut)
-    place_row
+    # Externals only (lid shut) -> stacked vertically, first on top.
+    place_col
 else
-    # All monitors: externals on top, laptop centered below the LEFT external.
+    # All monitors: externals side by side (top row), laptop bottom-left below
+    # the leftmost external.
     place_row
     lm=$(pref_mode "$LAPTOP"); [[ -z "$lm" ]] && lm="1920x1080"
     lw=${lm%x*}; lh=${lm#*x}
-    # Center under EXT[0] (leftmost external), not under the whole row.
-    lext_w=$(pref_mode "${EXT[0]}"); lext_w=${lext_w%x*}; [[ -z "$lext_w" ]] && lext_w=$ROW_W
-    lx=$(( (lext_w - lw) / 2 )); (( lx < 0 )) && lx=0
-    ON[$LAPTOP]="${lw}x${lh}+${lx}+${ROW_H}"
-    ARGS+=(--output "$LAPTOP" --mode "$lm" --pos "${lx}x${ROW_H}")
+    # Place laptop under the leftmost external (x=0), below the top row.
+    ON[$LAPTOP]="${lw}x${lh}+0+${ROW_H}"
+    ARGS+=(--output "$LAPTOP" --mode "$lm" --pos "0x${ROW_H}")
 fi
 
 # Turn off everything we are not enabling.
