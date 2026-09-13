@@ -1,5 +1,5 @@
 [window]
-opacity = 1
+opacity = 0.85
 
 [terminal]
 shell = { program = "/usr/bin/zsh" }
@@ -46,10 +46,3 @@ white   = '#a6adc8'
 key = "Return"
 mods = "Shift"
 chars = "\u001b\r"
-
-[cursor]
-thickness = 0.25
-
-[cursor.style]
-shape = "Block"
-blinking = "On"
