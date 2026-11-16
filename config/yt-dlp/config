@@ -19,6 +19,12 @@
 # Embed thumbnail
 --embed-thumbnail
 
+# Download folder: always ~/Eingang, wherever the terminal is.
+# On the desktop ~/Eingang links to /mnt/data/Videos/_Eingang: the video-index service
+# (~/git/video-index) picks new files up there, tags them and sorts them.
+# One-off other folder: yt-dlp -P <dir> <url>
+--paths ~/Eingang
+
 # Output template
 --output "%(title)s [%(id)s].%(ext)s"
 
